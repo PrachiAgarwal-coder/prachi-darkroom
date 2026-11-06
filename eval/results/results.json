@@ -1,0 +1,1199 @@
+{
+ "device": "Tesla T4",
+ "tiers": {
+  "baseline": {
+   "n": 50,
+   "clip": 0.3080660104751587,
+   "clip_std": 0.028978424832181986,
+   "gen_ms_mean": 31814.765511039965,
+   "gen_ms_p50": 31926.93429249971,
+   "gen_ms_p95": 31959.489650950127,
+   "total_ms_mean": 31880.45514305992,
+   "encMs": 18.603565059993343,
+   "denoise_ms": 30838.495105560007,
+   "decMs": 957.66684041997,
+   "post_ms": 45.29772553998555,
+   "peakMB": 8756.4928,
+   "sharpness": 3064.331253981284,
+   "clipped_pct": 0.13031768798828125,
+   "fid": 261.128173828125,
+   "kid": 0.0017130518099293113,
+   "kid_std": 6.590745726953173e-08,
+   "object_recall": 0.7333333333333333,
+   "relation_acc": 0.3076923076923077,
+   "prompt_pass": 0.36666666666666664,
+   "name": "Baseline",
+   "steps": 50,
+   "res": 512,
+   "precision": "FP32",
+   "decoder": "Full VAE",
+   "unet": "SD 1.5 UNet (860M)",
+   "sizeMB": 4264.9,
+   "stepMs": 616.7699021112002
+  },
+  "quality": {
+   "n": 100,
+   "clip": 0.29901927441358567,
+   "clip_std": 0.03395328877370634,
+   "gen_ms_mean": 951.4565082399713,
+   "gen_ms_p50": 949.2247795005824,
+   "gen_ms_p95": 964.3869800500852,
+   "total_ms_mean": 1018.4486691198982,
+   "encMs": 9.308331450001788,
+   "denoise_ms": 747.1641914800149,
+   "decMs": 194.98398530995473,
+   "post_ms": 45.86243314993226,
+   "peakMB": 9437.531648,
+   "sharpness": 4192.3751220968425,
+   "clipped_pct": 0.08901596069335938,
+   "fid": 213.2871856689453,
+   "kid": 0.01218179427087307,
+   "kid_std": 0.002248202683404088,
+   "object_recall": 0.75,
+   "relation_acc": 0.19230769230769232,
+   "prompt_pass": 0.26666666666666666,
+   "name": "Quality",
+   "steps": 8,
+   "res": 512,
+   "precision": "FP16",
+   "decoder": "Full VAE",
+   "unet": "SD 1.5 + LCM-LoRA",
+   "sizeMB": 2132.5,
+   "stepMs": 93.39552393500186
+  },
+  "balanced": {
+   "n": 100,
+   "clip": 0.30083649277687075,
+   "clip_std": 0.03241454305300092,
+   "gen_ms_mean": 402.13829063993217,
+   "gen_ms_p50": 400.99256400026206,
+   "gen_ms_p95": 411.5257324994218,
+   "total_ms_mean": 473.1855055500182,
+   "encMs": 9.655822629983959,
+   "denoise_ms": 371.44810362999124,
+   "decMs": 21.03436437995697,
+   "post_ms": 48.56630123004834,
+   "peakMB": 9298.755584,
+   "sharpness": 4377.108249933207,
+   "clipped_pct": 0.14592361450195312,
+   "fid": 211.9856719970703,
+   "kid": 0.007608048617839813,
+   "kid_std": 0.0019301904831081629,
+   "object_recall": 0.7166666666666667,
+   "relation_acc": 0.19230769230769232,
+   "prompt_pass": 0.26666666666666666,
+   "name": "Balanced",
+   "steps": 4,
+   "res": 512,
+   "precision": "FP16",
+   "decoder": "TAESD",
+   "unet": "SD 1.5 + LCM-LoRA",
+   "sizeMB": 1970.1,
+   "stepMs": 92.86202590749781
+  },
+  "lite": {
+   "n": 100,
+   "clip": 0.2934227655827999,
+   "clip_std": 0.0332351904955974,
+   "gen_ms_mean": 348.22322960992096,
+   "gen_ms_p50": 335.7884740003101,
+   "gen_ms_p95": 414.0420885497406,
+   "total_ms_mean": 430.0553454499004,
+   "encMs": 9.748074390026886,
+   "denoise_ms": 325.5803506099255,
+   "decMs": 12.89480460996856,
+   "post_ms": 60.346230069981175,
+   "peakMB": 9491.28192,
+   "sharpness": 1578.85954123217,
+   "clipped_pct": 0.2368011474609375,
+   "fid": 223.72189331054688,
+   "kid": 0.01266367919743061,
+   "kid_std": 0.0026761856861412525,
+   "object_recall": 0.6,
+   "relation_acc": 0.19230769230769232,
+   "prompt_pass": 0.23333333333333334,
+   "name": "Lite",
+   "steps": 3,
+   "res": 384,
+   "precision": "INT8",
+   "decoder": "TAESD",
+   "unet": "SD 1.5 + LCM-LoRA, INT8",
+   "sizeMB": 1111.6,
+   "stepMs": 108.52678353664184
+  }
+ },
+ "ablation": [
+  {
+   "group": "Sampling steps",
+   "label": "LCM 1 step",
+   "size_mb": 2132.470614,
+   "n": 20,
+   "clip": 0.2768246978521347,
+   "clip_std": 0.02916181794967977,
+   "gen_ms_mean": 294.96430214999236,
+   "gen_ms_p50": 294.28587250004057,
+   "gen_ms_p95": 300.7759029488625,
+   "total_ms_mean": 367.66389910008,
+   "encMs": 9.607702799985418,
+   "denoise_ms": 88.54771279998204,
+   "decMs": 196.8088865500249,
+   "post_ms": 49.762660850046814,
+   "peakMB": 9670.543872,
+   "sharpness": 5741.502375033914,
+   "clipped_pct": 0.05252838134765625
+  },
+  {
+   "group": "Sampling steps",
+   "label": "LCM 2 steps",
+   "size_mb": 2132.470614,
+   "n": 20,
+   "clip": 0.29299823865294455,
+   "clip_std": 0.02182431806488202,
+   "gen_ms_mean": 389.28404829980536,
+   "gen_ms_p50": 387.656815000355,
+   "gen_ms_p95": 403.1864795492311,
+   "total_ms_mean": 460.56847324989576,
+   "encMs": 10.102862250005273,
+   "denoise_ms": 183.91782234998573,
+   "decMs": 195.26336369981436,
+   "post_ms": 49.80510290010898,
+   "peakMB": 9670.543872,
+   "sharpness": 4945.945070176908,
+   "clipped_pct": 0.04375457763671875
+  },
+  {
+   "group": "Sampling steps",
+   "label": "LCM 4 steps",
+   "size_mb": 2132.470614,
+   "n": 20,
+   "clip": 0.29720908105373384,
+   "clip_std": 0.023454886836163105,
+   "gen_ms_mean": 575.4128580001634,
+   "gen_ms_p50": 575.802329000453,
+   "gen_ms_p95": 581.9244619996425,
+   "total_ms_mean": 644.3662338499962,
+   "encMs": 9.102400150095491,
+   "denoise_ms": 370.7162850499117,
+   "decMs": 195.59417280015623,
+   "post_ms": 47.148229499998706,
+   "peakMB": 9670.543872,
+   "sharpness": 3458.101587386219,
+   "clipped_pct": 0.023670196533203125
+  },
+  {
+   "group": "Sampling steps",
+   "label": "LCM 8 steps",
+   "size_mb": 2132.470614,
+   "n": 20,
+   "clip": 0.29309239611029625,
+   "clip_std": 0.026425589331036198,
+   "gen_ms_mean": 956.7396794001525,
+   "gen_ms_p50": 955.3218950004521,
+   "gen_ms_p95": 968.8826047997281,
+   "total_ms_mean": 1026.6996866502268,
+   "encMs": 10.432270650062492,
+   "denoise_ms": 749.5924142999684,
+   "decMs": 196.7149944501216,
+   "post_ms": 47.40583420002622,
+   "peakMB": 9670.543872,
+   "sharpness": 3393.322841844274,
+   "clipped_pct": 0.04810333251953125
+  },
+  {
+   "group": "Decoder",
+   "label": "Full VAE, 4 steps",
+   "size_mb": 2132.470614,
+   "n": 20,
+   "clip": 0.29720908105373384,
+   "clip_std": 0.023454886836163105,
+   "gen_ms_mean": 576.5784671000802,
+   "gen_ms_p50": 575.3832040004454,
+   "gen_ms_p95": 585.1996759489339,
+   "total_ms_mean": 646.0658757999681,
+   "encMs": 9.55407749997903,
+   "denoise_ms": 371.4937625000857,
+   "decMs": 195.5306271000154,
+   "post_ms": 48.47864550001759,
+   "peakMB": 9670.543872,
+   "sharpness": 3458.101587386219,
+   "clipped_pct": 0.023670196533203125
+  },
+  {
+   "group": "Decoder",
+   "label": "TAESD, 4 steps",
+   "size_mb": 1970.053014,
+   "n": 20,
+   "clip": 0.29603773206472395,
+   "clip_std": 0.023066756485141348,
+   "gen_ms_mean": 400.2509933998681,
+   "gen_ms_p50": 399.6130699997593,
+   "gen_ms_p95": 403.59671874966807,
+   "total_ms_mean": 465.6758626497776,
+   "encMs": 9.010931850025372,
+   "denoise_ms": 370.52661404986793,
+   "decMs": 20.71344749997479,
+   "post_ms": 44.51969910005573,
+   "peakMB": 9198.10304,
+   "sharpness": 3537.709766475685,
+   "clipped_pct": 0.05313873291015625
+  },
+  {
+   "group": "Precision",
+   "label": "FP16 UNet (TAESD, 4 steps, 512)",
+   "size_mb": 1970.053014,
+   "n": 20,
+   "clip": 0.29603773206472395,
+   "clip_std": 0.023066756485141348,
+   "gen_ms_mean": 400.3725336000116,
+   "gen_ms_p50": 399.0716840003188,
+   "gen_ms_p95": 410.04398380055136,
+   "total_ms_mean": 464.1736348500217,
+   "encMs": 9.33238925013029,
+   "denoise_ms": 370.27232724994974,
+   "decMs": 20.767817099931563,
+   "post_ms": 43.30775070011441,
+   "peakMB": 9198.10304,
+   "sharpness": 3537.709766475685,
+   "clipped_pct": 0.05313873291015625
+  },
+  {
+   "group": "Precision",
+   "label": "INT8 UNet (TAESD, 4 steps, 512)",
+   "size_mb": 1111.61383,
+   "n": 20,
+   "clip": 0.2943495064973831,
+   "clip_std": 0.023605610510989736,
+   "gen_ms_mean": 536.892894499988,
+   "gen_ms_p50": 533.0597870001839,
+   "gen_ms_p95": 558.531650099485,
+   "total_ms_mean": 604.6599412999967,
+   "encMs": 9.151139699997657,
+   "denoise_ms": 507.30456694996064,
+   "decMs": 20.43718785002966,
+   "post_ms": 46.63847614997394,
+   "peakMB": 9198.10304,
+   "sharpness": 3577.8272293882196,
+   "clipped_pct": 0.049076080322265625
+  },
+  {
+   "group": "Resolution",
+   "label": "Lite at 384 px + upscale",
+   "size_mb": 1111.61383,
+   "n": 20,
+   "clip": 0.29285928457975385,
+   "clip_std": 0.03045512976802665,
+   "gen_ms_mean": 351.27790460014694,
+   "gen_ms_p50": 337.0243935005419,
+   "gen_ms_p95": 418.9815242003533,
+   "total_ms_mean": 433.4388463000323,
+   "encMs": 9.607304349947299,
+   "denoise_ms": 328.66030650006905,
+   "decMs": 13.010293750130586,
+   "post_ms": 61.08745984997768,
+   "peakMB": 9159.968256,
+   "sharpness": 1510.159046659919,
+   "clipped_pct": 0.11837005615234375
+  },
+  {
+   "group": "Resolution",
+   "label": "Lite at 512 px",
+   "size_mb": 1111.61383,
+   "n": 20,
+   "clip": 0.2994448199868202,
+   "clip_std": 0.020601415039681114,
+   "gen_ms_mean": 416.1533533000238,
+   "gen_ms_p50": 409.1919089996736,
+   "gen_ms_p95": 455.00576144963816,
+   "total_ms_mean": 486.9524460499633,
+   "encMs": 10.157875700042496,
+   "denoise_ms": 385.4926336000517,
+   "decMs": 20.50284399992961,
+   "post_ms": 48.663023499875635,
+   "peakMB": 9198.10304,
+   "sharpness": 3747.2361697596884,
+   "clipped_pct": 0.049800872802734375
+  },
+  {
+   "group": "Post-processing",
+   "label": "Balanced, post-processing off",
+   "size_mb": 1970.053014,
+   "n": 20,
+   "clip": 0.29732631146907806,
+   "clip_std": 0.02078981368228503,
+   "gen_ms_mean": 403.8967968500856,
+   "gen_ms_p50": 401.18190350040095,
+   "gen_ms_p95": 419.92164960120135,
+   "total_ms_mean": 421.51397159991575,
+   "encMs": 10.113665500011848,
+   "denoise_ms": 372.63603729998067,
+   "decMs": 21.147094050093074,
+   "post_ms": 0.00455969989161531,
+   "peakMB": 9198.10304,
+   "sharpness": 1332.5257944053787,
+   "clipped_pct": 1.3081169128417969
+  },
+  {
+   "group": "Post-processing",
+   "label": "Balanced, post-processing on",
+   "size_mb": 1970.053014,
+   "n": 20,
+   "clip": 0.29603773206472395,
+   "clip_std": 0.023066756485141348,
+   "gen_ms_mean": 403.13816310008406,
+   "gen_ms_p50": 402.7668025000821,
+   "gen_ms_p95": 409.04090284998347,
+   "total_ms_mean": 476.0734572499132,
+   "encMs": 9.590348099982293,
+   "denoise_ms": 372.52358605001064,
+   "decMs": 21.02422895009113,
+   "post_ms": 50.355252549888974,
+   "peakMB": 9198.10304,
+   "sharpness": 3537.709766475685,
+   "clipped_pct": 0.05313873291015625
+  }
+ ],
+ "created": "2026-11-06 16:30",
+ "failures": [
+  {
+   "tier": "baseline",
+   "prompt": "a blue sphere to the left of a red cube",
+   "failed": [
+    "Found a blue sphere",
+    "blue sphere is left of the red cube"
+   ],
+   "kind": "missing object",
+   "file": "failures/00_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a green cup on top of a brown book",
+   "failed": [
+    "Found a brown book",
+    "green cup is on top of the brown book"
+   ],
+   "kind": "missing object",
+   "file": "failures/01_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a black cat next to a white dog",
+   "failed": [
+    "Found a white dog",
+    "black cat is beside the white dog"
+   ],
+   "kind": "missing object",
+   "file": "failures/02_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "two red apples beside a green bottle",
+   "failed": [
+    "Found a red apple",
+    "Found a green bottle",
+    "red apple is beside the green bottle"
+   ],
+   "kind": "missing object",
+   "file": "failures/03_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a yellow auto rickshaw in front of a white temple at night",
+   "failed": [
+    "Found a white temple",
+    "yellow auto rickshaw is in front of the white temple"
+   ],
+   "kind": "missing object",
+   "file": "failures/04_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a brown dog behind a red car",
+   "failed": [
+    "brown dog is behind the red car"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "failures/05_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a white cat on top of a red chair",
+   "failed": [
+    "Found a red chair",
+    "white cat is on top of the red chair"
+   ],
+   "kind": "missing object",
+   "file": "failures/06_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a green tree to the left of a yellow house",
+   "failed": [
+    "green tree is left of the yellow house"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "failures/07_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a blue mug to the right of a black laptop",
+   "failed": [
+    "Found a blue mug",
+    "Found a black laptop",
+    "blue mug is right of the black laptop"
+   ],
+   "kind": "missing object",
+   "file": "failures/08_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "three yellow bananas on a blue plate",
+   "failed": [
+    "yellow banana is on top of the blue plate"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "failures/09_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a white horse to the left of a brown cow",
+   "failed": [
+    "Found a brown cow",
+    "white horse is left of the brown cow"
+   ],
+   "kind": "missing object",
+   "file": "failures/10_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a blue bicycle next to a red fire hydrant",
+   "failed": [
+    "Found a blue bicycle",
+    "blue bicycle is beside the red fire hydrant"
+   ],
+   "kind": "missing object",
+   "file": "failures/11_baseline.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a green frog on top of a red mushroom",
+   "failed": [
+    "green frog is on top of the red mushroom"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0021.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a red kite above a green field",
+   "failed": [
+    "Found a red kite"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0023.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a brown teddy bear to the right of a pink pillow",
+   "failed": [
+    "brown teddy bear is right of the pink pillow"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0024.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a silver spoon to the left of a white bowl",
+   "failed": [
+    "Found a white bowl",
+    "silver spoon is left of the white bowl"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0025.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a blue bird on top of a brown fence",
+   "failed": [
+    "Found a brown fence",
+    "blue bird is on top of the brown fence"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0026.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "a white sheep in front of a green barn",
+   "failed": [
+    "Found a green barn",
+    "white sheep is in front of the green barn"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0027.jpg"
+  },
+  {
+   "tier": "baseline",
+   "prompt": "an orange pumpkin next to a purple candle",
+   "failed": [
+    "Found a purple candle",
+    "orange pumpkin is beside the purple candle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/baseline_compositional/0028.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a red cube to the left of a blue sphere",
+   "failed": [
+    "Found a blue sphere",
+    "red cube is left of the blue sphere"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0000.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a green cup on top of a brown book",
+   "failed": [
+    "Found a brown book",
+    "green cup is on top of the brown book"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0002.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "two red apples beside a green bottle",
+   "failed": [
+    "Found a green bottle",
+    "red apple is beside the green bottle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0006.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a yellow auto rickshaw in front of a white temple at night",
+   "failed": [
+    "Found a white temple",
+    "yellow auto rickshaw is in front of the white temple"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0008.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a brown dog behind a red car",
+   "failed": [
+    "brown dog is behind the red car"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0009.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a white cat on top of a red chair",
+   "failed": [
+    "white cat is on top of the red chair"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0011.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a green tree to the left of a yellow house",
+   "failed": [
+    "green tree is left of the yellow house"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0012.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a blue mug to the right of a black laptop",
+   "failed": [
+    "blue mug is right of the black laptop"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0013.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a red umbrella above a black dog",
+   "failed": [
+    "Found a black dog",
+    "red umbrella is above the black dog"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0015.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "an orange cat in front of a green door",
+   "failed": [
+    "Found a orange cat",
+    "orange cat is in front of the green door"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0016.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a white horse to the left of a brown cow",
+   "failed": [
+    "white horse is left of the brown cow"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0017.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a blue bicycle next to a red fire hydrant",
+   "failed": [
+    "Found a red fire hydrant",
+    "blue bicycle is beside the red fire hydrant"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0018.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a black clock above a white sofa",
+   "failed": [
+    "Found a black clock",
+    "black clock is above the white sofa"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0019.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a green frog on top of a red mushroom",
+   "failed": [
+    "Found a red mushroom",
+    "green frog is on top of the red mushroom"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0021.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a yellow taxi behind a blue bus",
+   "failed": [
+    "Found a yellow taxi",
+    "yellow taxi is behind the blue bus"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0022.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a red kite above a green field",
+   "failed": [
+    "Found a red kite"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0023.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a brown teddy bear to the right of a pink pillow",
+   "failed": [
+    "Found a pink pillow",
+    "brown teddy bear is right of the pink pillow"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0024.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a silver spoon to the left of a white bowl",
+   "failed": [
+    "silver spoon is left of the white bowl"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0025.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a blue bird on top of a brown fence",
+   "failed": [
+    "Found a brown fence",
+    "blue bird is on top of the brown fence"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0026.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a white sheep in front of a green barn",
+   "failed": [
+    "Found a green barn",
+    "white sheep is in front of the green barn"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0027.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "an orange pumpkin next to a purple candle",
+   "failed": [
+    "orange pumpkin is beside the purple candle"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0028.jpg"
+  },
+  {
+   "tier": "quality",
+   "prompt": "a black umbrella to the right of a yellow raincoat",
+   "failed": [
+    "Found a yellow raincoat",
+    "black umbrella is right of the yellow raincoat"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/quality_compositional/0029.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a red cube to the left of a blue sphere",
+   "failed": [
+    "Found a blue sphere",
+    "red cube is left of the blue sphere"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0000.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a green cup on top of a brown book",
+   "failed": [
+    "Found a brown book",
+    "green cup is on top of the brown book"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0002.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a black cat next to a white dog",
+   "failed": [
+    "Found a white dog",
+    "black cat is beside the white dog"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0004.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "two red apples beside a green bottle",
+   "failed": [
+    "Found a green bottle",
+    "red apple is beside the green bottle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0006.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a yellow auto rickshaw in front of a white temple at night",
+   "failed": [
+    "Found a white temple",
+    "yellow auto rickshaw is in front of the white temple"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0008.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a brown dog behind a red car",
+   "failed": [
+    "brown dog is behind the red car"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0009.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a white cat on top of a red chair",
+   "failed": [
+    "white cat is on top of the red chair"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0011.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a green tree to the left of a yellow house",
+   "failed": [
+    "green tree is left of the yellow house"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0012.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a blue mug to the right of a black laptop",
+   "failed": [
+    "Found a blue mug",
+    "Found a black laptop",
+    "blue mug is right of the black laptop"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0013.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "three yellow bananas on a blue plate",
+   "failed": [
+    "yellow banana is on top of the blue plate"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0014.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "an orange cat in front of a green door",
+   "failed": [
+    "Found a orange cat",
+    "orange cat is in front of the green door"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0016.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a white horse to the left of a brown cow",
+   "failed": [
+    "Found a brown cow",
+    "white horse is left of the brown cow"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0017.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a blue bicycle next to a red fire hydrant",
+   "failed": [
+    "Found a red fire hydrant",
+    "blue bicycle is beside the red fire hydrant"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0018.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a black clock above a white sofa",
+   "failed": [
+    "Found a black clock",
+    "black clock is above the white sofa"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0019.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a green frog on top of a red mushroom",
+   "failed": [
+    "Found a red mushroom",
+    "green frog is on top of the red mushroom"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0021.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a yellow taxi behind a blue bus",
+   "failed": [
+    "Found a yellow taxi",
+    "yellow taxi is behind the blue bus"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0022.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a red kite above a green field",
+   "failed": [
+    "Found a red kite"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0023.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a brown teddy bear to the right of a pink pillow",
+   "failed": [
+    "Found a pink pillow",
+    "brown teddy bear is right of the pink pillow"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0024.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a silver spoon to the left of a white bowl",
+   "failed": [
+    "silver spoon is left of the white bowl"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0025.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a white sheep in front of a green barn",
+   "failed": [
+    "Found a green barn",
+    "white sheep is in front of the green barn"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0027.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "an orange pumpkin next to a purple candle",
+   "failed": [
+    "Found a purple candle",
+    "orange pumpkin is beside the purple candle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0028.jpg"
+  },
+  {
+   "tier": "balanced",
+   "prompt": "a black umbrella to the right of a yellow raincoat",
+   "failed": [
+    "black umbrella is right of the yellow raincoat"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/balanced_compositional/0029.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a red cube to the left of a blue sphere",
+   "failed": [
+    "Found a red cube",
+    "red cube is left of the blue sphere"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0000.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a blue sphere to the left of a red cube",
+   "failed": [
+    "Found a red cube",
+    "blue sphere is left of the red cube"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0001.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a green cup on top of a brown book",
+   "failed": [
+    "Found a brown book",
+    "green cup is on top of the brown book"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0002.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a black cat next to a white dog",
+   "failed": [
+    "Found a white dog",
+    "black cat is beside the white dog"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0004.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "two red apples beside a green bottle",
+   "failed": [
+    "Found a green bottle",
+    "red apple is beside the green bottle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0006.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a yellow auto rickshaw in front of a white temple at night",
+   "failed": [
+    "Found a white temple",
+    "yellow auto rickshaw is in front of the white temple"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0008.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a brown dog behind a red car",
+   "failed": [
+    "Found a brown dog",
+    "brown dog is behind the red car"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0009.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a pink balloon above a blue bench",
+   "failed": [
+    "Found a pink balloon",
+    "Found a blue bench",
+    "pink balloon is above the blue bench"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0010.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a white cat on top of a red chair",
+   "failed": [
+    "Found a red chair",
+    "white cat is on top of the red chair"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0011.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a blue mug to the right of a black laptop",
+   "failed": [
+    "Found a blue mug",
+    "Found a black laptop",
+    "blue mug is right of the black laptop"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0013.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "three yellow bananas on a blue plate",
+   "failed": [
+    "yellow banana is on top of the blue plate"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0014.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a white horse to the left of a brown cow",
+   "failed": [
+    "Found a brown cow",
+    "white horse is left of the brown cow"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0017.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a blue bicycle next to a red fire hydrant",
+   "failed": [
+    "Found a red fire hydrant",
+    "blue bicycle is beside the red fire hydrant"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0018.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a black clock above a white sofa",
+   "failed": [
+    "Found a white sofa",
+    "black clock is above the white sofa"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0019.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a purple flower in a white vase",
+   "failed": [
+    "Found a white vase"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0020.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a green frog on top of a red mushroom",
+   "failed": [
+    "Found a red mushroom",
+    "green frog is on top of the red mushroom"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0021.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a yellow taxi behind a blue bus",
+   "failed": [
+    "Found a blue bus",
+    "yellow taxi is behind the blue bus"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0022.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a red kite above a green field",
+   "failed": [
+    "Found a red kite"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0023.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a silver spoon to the left of a white bowl",
+   "failed": [
+    "Found a silver spoon",
+    "Found a white bowl",
+    "silver spoon is left of the white bowl"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0025.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a blue bird on top of a brown fence",
+   "failed": [
+    "Found a brown fence",
+    "blue bird is on top of the brown fence"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0026.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a white sheep in front of a green barn",
+   "failed": [
+    "Found a green barn",
+    "white sheep is in front of the green barn"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0027.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "an orange pumpkin next to a purple candle",
+   "failed": [
+    "Found a purple candle",
+    "orange pumpkin is beside the purple candle"
+   ],
+   "kind": "missing object",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0028.jpg"
+  },
+  {
+   "tier": "lite",
+   "prompt": "a black umbrella to the right of a yellow raincoat",
+   "failed": [
+    "black umbrella is right of the yellow raincoat"
+   ],
+   "kind": "wrong spatial relation",
+   "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0029.jpg"
+  }
+ ]
+}

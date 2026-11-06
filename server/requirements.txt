@@ -5,6 +5,7 @@ transformers>=4.44
 accelerate
 peft>=0.12
 optimum-quanto>=0.2.4
+# note: if torchao<0.16 is installed (e.g. Colab), uninstall it - peft refuses to load LoRAs with it
 safetensors
 fastapi>=0.110
 uvicorn[standard]

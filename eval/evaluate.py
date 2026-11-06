@@ -222,8 +222,15 @@ def write_markdown(R, a, out):
     L += ["", "## 2. FID and KID (distribution-level, vs real COCO images)", "",
           "| Tier | FID ↓ | KID ×1000 ↓ |", "|---|---|---|"]
     L += [row(k, [fmt(s["fid"], 1), f"{s['kid'] * 1000:.2f} ± {s['kid_std'] * 1000:.2f}"]) for k, s in T.items()]
+    ns = {s["n"] for s in T.values()}
     L += ["", "_FID with a few hundred samples is biased upward; compare tiers against each other, not against "
-          "published numbers. KID is unbiased at this sample size._", "",
+          "published numbers. KID is unbiased at this sample size._"]
+    if len(ns) > 1:
+        L += ["", "_**Tiers were evaluated on different numbers of images** (" +
+              ", ".join(f"{s['name']} {s['n']}" for s in T.values()) +
+              "). FID is strongly biased by sample count, so FID values are **not comparable across these rows**; "
+              "use KID for cross-tier comparison._"]
+    L += ["",
           "## 3. Image generation latency", "",
           "| Tier | Steps | Encode | Denoise | Decode | Generation mean | p50 | p95 | Speed-up |",
           "|---|---|---|---|---|---|---|---|---|"]
@@ -232,7 +239,14 @@ def write_markdown(R, a, out):
         L.append(row(k, [str(s["steps"]), fmt(s["encMs"], 0, " ms"), fmt(s["denoise_ms"], 0, " ms"),
                          fmt(s["decMs"], 0, " ms"), fmt(s["gen_ms_mean"], 0, " ms"), fmt(s["gen_ms_p50"], 0, " ms"),
                          fmt(s["gen_ms_p95"], 0, " ms"), sp]))
-    L += ["", "## 4. Peak memory consumption", "", "| Tier | Peak GPU memory | Reduction |", "|---|---|---|"]
+    isolated = "isolated" in R.get("memory_method", "")
+    L += ["", "## 4. Peak memory consumption", "",
+          ("Measured in isolation (`eval/measure_memory.py`): one process per tier, loading only that tier's "
+           "weights and no scorer models, so each number is what a device running that tier needs."
+           if isolated else
+           "**Not yet isolated:** these peaks include every tier and the scorer models loaded in the same process. "
+           "Run `eval/measure_memory.py` to replace them with per-tier measurements."), "",
+          "| Tier | Peak GPU memory | Reduction |", "|---|---|---|"]
     for k, s in T.items():
         red = f"{b['peakMB'] / s['peakMB']:.1f}×" if b and s["peakMB"] and b["peakMB"] else "—"
         L.append(row(k, [fmt(s["peakMB"], 0, " MB"), red]))
@@ -251,11 +265,12 @@ def write_markdown(R, a, out):
     if R["ablation"]:
         L += ["", "## 8. Ablation study", "",
               "Each row changes one factor; everything else is held fixed.", "",
-              "| Factor | Configuration | CLIP | Generation latency | Peak memory | Sharpness | Clipped px |",
-              "|---|---|---|---|---|---|---|"]
+              "| Factor | Configuration | CLIP | Generation latency | Sharpness | Clipped px |",
+              "|---|---|---|---|---|---|"]
         L += [f"| {x['group']} | {x['label']} | {fmt(x['clip'])} | {fmt(x['gen_ms_mean'], 0, ' ms')} | "
-              f"{fmt(x['peakMB'], 0, ' MB')} | {fmt(x['sharpness'], 0)} | {fmt(x['clipped_pct'], 2, ' %')} |"
+              f"{fmt(x['sharpness'], 0)} | {fmt(x['clipped_pct'], 2, ' %')} |"
               for x in R["ablation"]]
+        L += ["", "_Memory per configuration is reported in §4 (measured per tier in isolation)._"]
     L += ["", "## 9. Failure cases", ""]
     if R["failures"]:
         L += ["| Tier | Prompt | What failed | Type | Image |", "|---|---|---|---|---|"]

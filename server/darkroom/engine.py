@@ -53,7 +53,8 @@ def to_data_url(img: np.ndarray, fmt="JPEG", quality=92):
 
 
 class Engine:
-    def __init__(self, load_baseline=None, pipes=None, taesd=None):
+    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None):
+        """only: optional list of tier keys to load (e.g. ['lite']) - used to measure one tier's memory in isolation."""
         self.device = pick_device()
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
         self.lock = threading.Lock()
@@ -65,55 +66,71 @@ class Engine:
         if pipes is not None:          # injected (tests)
             self.pipes = pipes
         else:
-            self._load(load_baseline)
+            self._load(load_baseline, only)
         self.model_mb = {k: self._pipe_mb(p) for k, p in self.pipes.items()}
         self.available = [k for k, t in config.TIERS.items() if t["pipe"] in self.pipes]
         log.info("Tiers ready: %s on %s", self.available, self.device)
 
     # ------------------------------------------------------------------ loading
-    def _load(self, load_baseline):
+    def _load(self, load_baseline, only=None):
+        import gc
+
         from diffusers import AutoencoderTiny, LCMScheduler, StableDiffusionPipeline
 
-        common = dict(safety_checker=None, requires_safety_checker=False)
-        log.info("Loading %s (%s)", config.BASE_MODEL, self.dtype)
-        fast = StableDiffusionPipeline.from_pretrained(config.BASE_MODEL, torch_dtype=self.dtype, **common)
-        fast.scheduler = LCMScheduler.from_config(fast.scheduler.config)
-        fast.load_lora_weights(config.LCM_LORA, adapter_name="lcm")
-        if config.CUSTOM_LORA:
-            fast.load_lora_weights(config.CUSTOM_LORA, adapter_name="custom")
-            fast.set_adapters(["lcm", "custom"], adapter_weights=[1.0, 0.8])
-        fast.fuse_lora()
-        fast.unload_lora_weights()
-        fast.to(self.device)
+        wanted = None if not only else {config.TIERS[t]["pipe"] for t in only}
 
+        def need(pipe_key):
+            return wanted is None or pipe_key in wanted
+
+        common = dict(safety_checker=None, requires_safety_checker=False)
         self.taesd = AutoencoderTiny.from_pretrained(config.TAESD, torch_dtype=self.dtype).to(self.device)
 
-        def variant(unet, vae):
-            return StableDiffusionPipeline(vae=vae, text_encoder=fast.text_encoder, tokenizer=fast.tokenizer,
-                                           unet=unet, scheduler=fast.scheduler, safety_checker=None,
-                                           feature_extractor=None, requires_safety_checker=False)
+        if need("fast") or need("fast_taesd") or need("lite"):
+            log.info("Loading %s (%s)", config.BASE_MODEL, self.dtype)
+            fast = StableDiffusionPipeline.from_pretrained(config.BASE_MODEL, torch_dtype=self.dtype, **common)
+            fast.scheduler = LCMScheduler.from_config(fast.scheduler.config)
+            fast.load_lora_weights(config.LCM_LORA, adapter_name="lcm")
+            if config.CUSTOM_LORA:
+                fast.load_lora_weights(config.CUSTOM_LORA, adapter_name="custom")
+                fast.set_adapters(["lcm", "custom"], adapter_weights=[1.0, 0.8])
+            fast.fuse_lora()
+            fast.unload_lora_weights()
+            fast.to(self.device)
 
-        self.pipes["fast"] = fast
-        self.pipes["fast_taesd"] = variant(fast.unet, self.taesd)
+            def variant(unet, vae):
+                return StableDiffusionPipeline(vae=vae, text_encoder=fast.text_encoder, tokenizer=fast.tokenizer,
+                                               unet=unet, scheduler=fast.scheduler, safety_checker=None,
+                                               feature_extractor=None, requires_safety_checker=False)
 
-        unet_lite = copy.deepcopy(fast.unet)
-        try:
-            if os.getenv("DARKROOM_INT8", "1") != "1":
-                raise RuntimeError("disabled with DARKROOM_INT8=0")
-            from optimum.quanto import freeze, qint8, quantize
-            quantize(unet_lite, weights=qint8)
-            freeze(unet_lite)
-            self.precision_actual["lite"] = "INT8"
-        except Exception as e:  # quanto missing or unsupported device: keep running, but say so
-            log.warning("INT8 quantisation unavailable (%s); Lite runs in %s", e, self.dtype)
-            self.precision_actual["lite"] = "FP16" if self.dtype == torch.float16 else "FP32"
-        self.pipes["lite"] = variant(unet_lite, self.taesd)
+            if need("fast"):
+                self.pipes["fast"] = fast
+            if need("fast_taesd"):
+                self.pipes["fast_taesd"] = variant(fast.unet, self.taesd)
+            if need("lite"):
+                # share nothing with the FP16 UNet when other tiers use it; quantise in place when Lite is alone
+                alone = not (need("fast") or need("fast_taesd"))
+                unet_lite = fast.unet if alone else copy.deepcopy(fast.unet)
+                try:
+                    if os.getenv("DARKROOM_INT8", "1") != "1":
+                        raise RuntimeError("disabled with DARKROOM_INT8=0")
+                    from optimum.quanto import freeze, qint8, quantize
+                    quantize(unet_lite, weights=qint8)
+                    freeze(unet_lite)
+                    self.precision_actual["lite"] = "INT8"
+                except Exception as e:  # quanto missing or unsupported device: keep running, but say so
+                    log.warning("INT8 quantisation unavailable (%s); Lite runs in %s", e, self.dtype)
+                    self.precision_actual["lite"] = "FP16" if self.dtype == torch.float16 else "FP32"
+                self.pipes["lite"] = variant(unet_lite, self.taesd)
+            del fast                      # unused parts (e.g. the full VAE for TAESD-only tiers) are freed here
+            gc.collect()
 
-        if load_baseline:
+        if need("baseline") and (load_baseline or wanted is not None):
             log.info("Loading FP32 baseline")
             base = StableDiffusionPipeline.from_pretrained(config.BASE_MODEL, torch_dtype=torch.float32, **common)
             self.pipes["baseline"] = base.to(self.device)
 
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
         for p in self.pipes.values():
             p.set_progress_bar_config(disable=True)
 
@@ -155,6 +172,7 @@ class Engine:
         gen = torch.Generator(device="cpu").manual_seed(int(seed))
         if self.device == "cuda":
             torch.cuda.reset_peak_memory_stats()
+            alloc0 = torch.cuda.memory_allocated()
 
         # 1. prompt encoding
         emit({"type": "stage", "stage": "encode", "state": "run"})
@@ -190,7 +208,11 @@ class Engine:
         img = pipe.image_processor.postprocess(img, output_type="np")[0]
         self._sync(); dec_ms = (time.perf_counter() - t2) * 1000
         emit({"type": "stage", "stage": "decode", "state": "ok", "ms": dec_ms})
-        peak_mb = torch.cuda.max_memory_allocated() / 1e6 if self.device == "cuda" else None
+        # peak_process_mb: everything on the GPU (all loaded tiers + scorer models) - only meaningful in isolation.
+        # peak_mb: this tier's footprint = its own weights + the activation peak of this request.
+        peak_process_mb = torch.cuda.max_memory_allocated() / 1e6 if self.device == "cuda" else None
+        peak_mb = (self.model_mb[t["pipe"]] + (torch.cuda.max_memory_allocated() - alloc0) / 1e6) \
+            if self.device == "cuda" else None
 
         raw = (np.clip(img, 0, 1) * 255).astype(np.uint8)
 
@@ -213,7 +235,8 @@ class Engine:
 
         return {
             "raw": raw, "processed": processed, "detections": detections, "checks": checks,
-            "metrics": {"clip": clip, "peak_mb": peak_mb, "model_mb": self.model_mb[t["pipe"]],
+            "metrics": {"clip": clip, "peak_mb": peak_mb, "peak_process_mb": peak_process_mb,
+                        "model_mb": self.model_mb[t["pipe"]],
                         "encode_ms": enc_ms, "denoise_ms": den_ms, "decode_ms": dec_ms,
                         "post_ms": post_ms, "qa_ms": qa_ms, "verify_ms": ver_ms,
                         "total_ms": enc_ms + den_ms + dec_ms + post_ms + qa_ms + ver_ms},

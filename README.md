@@ -2,13 +2,13 @@
 ### Resource-efficient text-to-image generation for mobile devices
 **Computer Vision Hackathon 2026 · Problem Statement P3**
 
-Darkroom turns a natural-language prompt into an image in a few denoising steps, sized to fit the memory budget of the phone it is generating for. It starts from Stable Diffusion 1.5 and applies five optimisations: consistency distillation, reduced precision, INT8 weight quantisation, a distilled latent decoder and resolution scaling. These cut sampling steps from 50 to as few as 3, roughly halve peak GPU memory, and shrink the model on disk from about 4.3 GB to about 1.1 GB (the estimates in §5; the measured numbers are in the evaluation report). A classical computer-vision stage corrects colour, contrast and artifacts. An open-vocabulary detector then checks that the image actually contains the objects, colours and spatial relations the prompt asked for.
+Darkroom turns a natural-language prompt into an image in a few denoising steps, sized to fit the memory budget of the phone it is generating for. It starts from Stable Diffusion 1.5 and applies five optimisations: consistency distillation, reduced precision, INT8 weight quantisation, a distilled latent decoder and resolution scaling. On a T4 these make generation **79× faster** (31.8 s → 0.40 s) while keeping 98% of the baseline's CLIP score, and shrink the model **3.8×** (4.27 GB → 1.11 GB). The measured numbers are in §10 and the evaluation report. A classical computer-vision stage corrects colour, contrast and artifacts. An open-vocabulary detector then checks that the image actually contains the objects, colours and spatial relations the prompt asked for.
 
 | | |
 |---|---|
 | **Live application** | _<paste the published Lovable URL>_ |
-| **Model server** | _<paste the Modal URL>_ |
-| **Evaluation report** | [`eval/results/eval_P3_<TEAM>.md`](eval/results/) |
+| **Model server** | Runs on a GPU via the Colab notebook ("Optional A") with a Cloudflare tunnel; the notebook prints the judges' link |
+| **Evaluation report** | [`eval/results/eval_P3_T03.md`](eval/results/eval_P3_T03.md) |
 | **Design document** | [`docs/DESIGN.md`](docs/DESIGN.md) |
 | **Architecture** | [§3 below](#3-system-architecture) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | **Run everything on a free GPU** | [Open the notebook in Colab](https://colab.research.google.com/github/PrachiAgarwal-coder/prachi-darkroom/blob/main/notebooks/darkroom_colab.ipynb) |
@@ -268,18 +268,35 @@ flowchart LR
 
 ## 10. Results
 
-> The tables below are filled from `eval/results/eval_P3_<TEAM>.md` after running §15. **Do not submit estimates as results.**
+Measured on a **Tesla T4** with `eval/evaluate.py` (fixed seeds, COCO val2017 captions). Full report: [`eval/results/eval_P3_T03.md`](eval/results/eval_P3_T03.md).
 
-| Tier | CLIP ↑ | FID ↓ | Latency (generation) | Peak memory | Model size | Prompts fully satisfied |
-|---|---|---|---|---|---|---|
-| Baseline | | | | | | |
-| Quality | | | | | | |
-| Balanced | | | | | | |
-| Lite | | | | | | |
+| Tier | Steps | CLIP ↑ | KID×1000 ↓ | Generation latency | Speed-up | Model size | Peak memory* | Prompts fully satisfied |
+|---|---|---|---|---|---|---|---|---|
+| Baseline (FP32, CFG) | 50 | **0.308** | **1.71** | 31.8 s | 1.0× | 4,265 MB | see report §4 | **0.37** |
+| Quality | 8 | 0.299 | 12.18 | 0.95 s | **33×** | 2,132 MB | see report §4 | 0.27 |
+| Balanced | 4 | 0.301 | 7.61 | 0.40 s | **79×** | 1,970 MB | see report §4 | 0.27 |
+| Lite (INT8, 384 px) | 3 | 0.293 | 12.66 | 0.35 s | **91×** | **1,112 MB** | see report §4 | 0.23 |
+
+\*Peak memory is measured per tier in isolation by `eval/measure_memory.py` (one process per tier, nothing else loaded).
 
 ![Quality vs cost](eval/results/quality_vs_cost.png)
 
-The full tables are in the evaluation report: per-stage latency, KID, the ablation study and the failure cases.
+**What the numbers say**
+- **Speed:** Balanced generates in 0.40 s against 31.8 s for the baseline, **79× faster**, while keeping **98% of the baseline's CLIP score** (0.301 vs 0.308). Two effects multiply here: 50 → 4 steps, and no classifier-free guidance (one UNet pass per step instead of two).
+- **Size:** Lite's weights are **3.8× smaller** than the baseline's (1.11 GB vs 4.27 GB): FP32 → FP16 halves them, and INT8 weight quantisation of the UNet roughly halves the UNet again.
+- **Where quality goes:** distribution-level quality (KID) is clearly worse for the few-step tiers than for the 50-step baseline. This is the known cost of consistency distillation. Balanced has the best KID of the optimised tiers, which is why it is the default for mid-range devices.
+- **Spatial reasoning is the weak point for every tier:** relation accuracy is 0.19–0.31, even for the baseline. That is a limitation of SD 1.5's text conditioning, not something our optimisation introduced. It is the main motivation for the verifier and auto-retry.
+- **FID caveat:** the baseline was scored on 50 images and the others on 100. FID is strongly sample-size dependent, so FID is not compared across tiers; KID is.
+
+**Ablation highlights** (one factor changed at a time; full table in the report §8)
+
+| Factor | Finding |
+|---|---|
+| Steps 1 → 2 → 4 → 8 | CLIP 0.277 → 0.293 → **0.297** → 0.293. It saturates at 4 steps, so 8 steps buys nothing measurable. This justifies Balanced = 4 steps |
+| Full VAE → TAESD (4 steps) | Generation **577 → 400 ms (−31%)** at equal CLIP (0.297 vs 0.296) |
+| FP16 → INT8 UNet | CLIP 0.296 → 0.294 (almost unchanged), **slower on T4** (400 → 537 ms) because of weight dequantisation; the benefit is size and memory, not speed, on GPUs without INT8 kernels |
+| 512 → 384 px (Lite) | 416 → 351 ms (−16%) for a small CLIP drop (0.299 → 0.293) and softer detail (sharpness 3747 → 1510) |
+| Post-processing off → on | Clipped pixels **1.31% → 0.05%**, sharpness 1333 → 3538, CLIP unchanged (0.297 vs 0.296); the OpenCV chain runs after generation and is timed separately in the app's pipeline view |
 
 ## 11. The application
 

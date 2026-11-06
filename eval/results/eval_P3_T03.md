@@ -24,6 +24,8 @@ Hardware: Tesla T4. Generated 2026-11-06 16:30. Seeds are fixed (0..N-1); COCO v
 
 _FID with a few hundred samples is biased upward; compare tiers against each other, not against published numbers. KID is unbiased at this sample size._
 
+_**Tiers were evaluated on different numbers of images** (Baseline 50, Quality 100, Balanced 100, Lite 100). FID is strongly biased by sample count, so FID values are **not comparable across these rows**; use KID for cross-tier comparison._
+
 ## 3. Image generation latency
 
 | Tier | Steps | Encode | Denoise | Decode | Generation mean | p50 | p95 | Speed-up |
@@ -34,6 +36,8 @@ _FID with a few hundred samples is biased upward; compare tiers against each oth
 | Lite | 3 | 10 ms | 326 ms | 13 ms | 348 ms | 336 ms | 414 ms | 91.4× |
 
 ## 4. Peak memory consumption
+
+**Not yet isolated:** these peaks include every tier and the scorer models loaded in the same process. Run `eval/measure_memory.py` to replace them with per-tier measurements.
 
 | Tier | Peak GPU memory | Reduction |
 |---|---|---|
@@ -77,20 +81,22 @@ _FID with a few hundred samples is biased upward; compare tiers against each oth
 
 Each row changes one factor; everything else is held fixed.
 
-| Factor | Configuration | CLIP | Generation latency | Peak memory | Sharpness | Clipped px |
-|---|---|---|---|---|---|---|
-| Sampling steps | LCM 1 step | 0.277 | 295 ms | 9671 MB | 5742 | 0.05 % |
-| Sampling steps | LCM 2 steps | 0.293 | 389 ms | 9671 MB | 4946 | 0.04 % |
-| Sampling steps | LCM 4 steps | 0.297 | 575 ms | 9671 MB | 3458 | 0.02 % |
-| Sampling steps | LCM 8 steps | 0.293 | 957 ms | 9671 MB | 3393 | 0.05 % |
-| Decoder | Full VAE, 4 steps | 0.297 | 577 ms | 9671 MB | 3458 | 0.02 % |
-| Decoder | TAESD, 4 steps | 0.296 | 400 ms | 9198 MB | 3538 | 0.05 % |
-| Precision | FP16 UNet (TAESD, 4 steps, 512) | 0.296 | 400 ms | 9198 MB | 3538 | 0.05 % |
-| Precision | INT8 UNet (TAESD, 4 steps, 512) | 0.294 | 537 ms | 9198 MB | 3578 | 0.05 % |
-| Resolution | Lite at 384 px + upscale | 0.293 | 351 ms | 9160 MB | 1510 | 0.12 % |
-| Resolution | Lite at 512 px | 0.299 | 416 ms | 9198 MB | 3747 | 0.05 % |
-| Post-processing | Balanced, post-processing off | 0.297 | 404 ms | 9198 MB | 1333 | 1.31 % |
-| Post-processing | Balanced, post-processing on | 0.296 | 403 ms | 9198 MB | 3538 | 0.05 % |
+| Factor | Configuration | CLIP | Generation latency | Sharpness | Clipped px |
+|---|---|---|---|---|---|
+| Sampling steps | LCM 1 step | 0.277 | 295 ms | 5742 | 0.05 % |
+| Sampling steps | LCM 2 steps | 0.293 | 389 ms | 4946 | 0.04 % |
+| Sampling steps | LCM 4 steps | 0.297 | 575 ms | 3458 | 0.02 % |
+| Sampling steps | LCM 8 steps | 0.293 | 957 ms | 3393 | 0.05 % |
+| Decoder | Full VAE, 4 steps | 0.297 | 577 ms | 3458 | 0.02 % |
+| Decoder | TAESD, 4 steps | 0.296 | 400 ms | 3538 | 0.05 % |
+| Precision | FP16 UNet (TAESD, 4 steps, 512) | 0.296 | 400 ms | 3538 | 0.05 % |
+| Precision | INT8 UNet (TAESD, 4 steps, 512) | 0.294 | 537 ms | 3578 | 0.05 % |
+| Resolution | Lite at 384 px + upscale | 0.293 | 351 ms | 1510 | 0.12 % |
+| Resolution | Lite at 512 px | 0.299 | 416 ms | 3747 | 0.05 % |
+| Post-processing | Balanced, post-processing off | 0.297 | 404 ms | 1333 | 1.31 % |
+| Post-processing | Balanced, post-processing on | 0.296 | 403 ms | 3538 | 0.05 % |
+
+_Memory per configuration is reported in §4 (measured per tier in isolation)._
 
 ## 9. Failure cases
 

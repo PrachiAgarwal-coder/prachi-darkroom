@@ -23,7 +23,7 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 | Verifier | OWL-ViT B/32 | Finds each prompt object by text query, which enables attribute and relation checks |
 | Scorer | CLIP ViT-B/32 | Text-image cosine similarity (CLIP score) |
 
-_Fill in after training: steps, final train/val loss, and the eval delta with vs without the LoRA._
+**Status:** the training script and the disjoint train split are ready (`eval/train_lora.py`, `download_coco.py --offset 5000`). Within the 24-hour window we did not run the LoRA training, so all reported results use the LCM-LoRA–adapted model without the custom LoRA. Our adaptation therefore consists of the fused LCM-LoRA, INT8 quantisation, the TAESD decoder swap and the tier-specific schedules, each measured in the ablation.
 
 ## 4. Optimisation strategies (the brief asks for at least two; we use five)
 
@@ -66,16 +66,33 @@ _Fill in after training: steps, final train/val loss, and the eval delta with vs
 - Resolution (384 vs 512 for Lite)
 - Post-processing (off vs on)
 
-_Paste the table and write 2–3 sentences per factor on what it cost and what it saved._
+Measured on a T4 over 20 COCO captions per configuration (full table: `eval/results/eval_P3_T03.md` §8).
+
+| Factor | CLIP | Generation latency | Other |
+|---|---|---|---|
+| LCM 1 / 2 / 4 / 8 steps | 0.277 / 0.293 / 0.297 / 0.293 | 295 / 389 / 575 / 957 ms | sharpness falls as steps rise (5742 → 3393): fewer steps leave more high-frequency noise |
+| Full VAE vs TAESD (4 steps) | 0.297 vs 0.296 | 577 vs 400 ms | — |
+| FP16 vs INT8 UNet (4 steps, 512 px) | 0.296 vs 0.294 | 400 vs 537 ms | UNet weights about 2× smaller |
+| Lite 512 px vs 384 px | 0.299 vs 0.293 | 416 vs 351 ms | sharpness 3747 vs 1510 |
+| Post-processing off vs on | 0.297 vs 0.296 | 404 vs 403 ms (generation) | clipped pixels 1.31% → 0.05%; sharpness 1333 → 3538 |
+
+- **Steps.** Quality saturates at 4 steps. One step loses 0.02 CLIP; going from 4 to 8 steps adds 66% latency for no measurable gain. Balanced therefore uses 4 steps, and Quality's 8 steps is kept only for its slightly better texture on flagship devices.
+- **Decoder.** TAESD removes 31% of generation time with no CLIP change. It is the cheapest optimisation in the system.
+- **Precision.** INT8 weight-only quantisation keeps alignment (−0.002 CLIP) and halves UNet weight size, but is *slower* on a T4. quanto dequantises weights on the fly, and the T4 has no fast path for INT8 weights × FP16 activations. On a phone NPU with native INT8 matmuls this trade-off reverses. We report the GPU result as measured.
+- **Resolution.** 384 px saves 16% latency at a small alignment cost; classical upscaling recovers size but not fine detail (sharpness 1510 vs 3747), which is the visible quality cost of Lite.
+- **Post-processing.** The classical chain does not change semantic alignment (CLIP is computed on content), but it removes almost all clipped highlights and shadows and restores edge contrast lost by few-step sampling and TAESD.
 
 ## 9. Failure analysis
 
-_After running the evaluation, pick at least three images from `eval/results/failures/` and explain each cause. Typical causes to check:_
+The verifier ran on 30 compositional prompts per tier. Images are in `eval/results/failures/`; the full list is in the report §9. Overall, object recall is 0.60–0.75 and relation accuracy is 0.19–0.31 across tiers.
 
-1. **Attribute leakage** ("a red cube and a blue sphere" → both red). CLIP's text encoder pools colour words weakly per noun. Fewer steps make it worse because there is less time to separate the objects.
-2. **Spatial relations ignored** ("left of" swapped). SD 1.5 was trained mostly on captions that rarely state positions, so the model has a weak spatial prior.
-3. **Counting** ("three bananas" → two or five). This is a known limitation of latent diffusion at this scale.
-4. **Verifier false negatives:** OWL-ViT misses small or stylised objects. The image may be correct while the check fails.
+1. **Object omission in two-object prompts.** For example, *"a black cat next to a white dog"* produced only the dog (`failures/02_baseline.jpg`). *Cause:* SD 1.5's CLIP text encoder compresses the whole prompt into one sequence, and cross-attention tends to let one noun dominate the layout. The second object is either absorbed into the first or dropped. This happens even at 50 steps, so it is a property of the base model, not of our compression.
+2. **Spatial relations ignored.** For example, *"a green tree to the left of a yellow house"*: both objects are present but the order is wrong (`failures/07_baseline.jpg`). *Cause:* LAION captions rarely state positions, so the model has almost no learned mapping from "left of" to layout. This is why relation accuracy is low for every tier (0.31 for the baseline). Few-step tiers do worse (0.19) because there are fewer denoising steps in which layout can still change.
+3. **Colour and attribute binding.** For example, *"a blue sphere to the left of a red cube"* was judged as having no blue sphere (`failures/00_baseline.jpg`): the colours were mixed or swapped between the objects. *Cause:* attribute leakage, where colour words attach to the wrong noun through shared attention.
+4. **Counting.** For example, *"two red apples beside a green bottle"* (`failures/03_baseline.jpg`). Latent diffusion at this scale does not count reliably.
+5. **Verifier false negatives.** OWL-ViT's confidence for unusual objects (an Indian auto rickshaw, a temple at night, `failures/04_baseline.jpg`) is lower, so some correct images are marked as failures. The reported consistency is therefore a conservative lower bound.
+
+**Mitigation in the system:** the client regenerates once with a new seed when a check fails. This often fixes cases 1 and 3, which are seed-dependent, but rarely case 2, which comes from the model's training data.
 
 ## 10. Limitations
 

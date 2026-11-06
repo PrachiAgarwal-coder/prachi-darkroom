@@ -75,7 +75,11 @@ def tiers():
     measured = {}
     if RESULTS.exists():
         try:
-            measured = json.loads(RESULTS.read_text()).get("tiers", {})
+            data = json.loads(RESULTS.read_text())
+            measured = data.get("tiers", {})
+            if "isolated" not in data.get("memory_method", ""):
+                # peaks from a process holding every tier would make the UI think nothing fits a phone
+                measured = {k: {f: v for f, v in t.items() if f != "peakMB"} for k, t in measured.items()}
         except Exception:
             pass
     out = {}

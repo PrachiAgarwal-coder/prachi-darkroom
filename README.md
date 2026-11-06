@@ -414,6 +414,8 @@ cloudflared tunnel --url http://localhost:8000                  # prints https:/
 - Recent PyTorch builds need **macOS 15 or newer** for Apple-GPU (MPS) inference. On macOS 14 the process aborts with `MPSNDArray arrayViewWithShape:strides: unrecognized selector`. Either update macOS or force CPU with `DARKROOM_DEVICE=cpu` (works, but expect tens of seconds per image).
 - On non-CUDA devices peak GPU memory is not reported; the official memory numbers come from the CUDA evaluation run.
 
+**Sharing a live server with any device.** Append the server to the app link and anyone who opens it is connected, with nothing to configure: `https://<app>.lovable.app/?server=wss://<server>/ws`. The Colab notebook's "Optional A" cell prints this link for you.
+
 **UI on Lovable:**
 1. Set the environment variable `VITE_DARKROOM_WS=wss://<name>.modal.run/ws`.
 2. Publish.

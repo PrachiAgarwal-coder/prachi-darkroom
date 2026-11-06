@@ -383,7 +383,12 @@ function Darkroom() {
     setMounted(true);
     const localMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
     if (typeof localMemory === "number") setMemory(localMemory);
-    const stored = localStorage.getItem("darkroom-ws-url") ?? DEFAULT_URL;
+    // ?server=wss://host/ws in the link connects any device (judges' phones) without settings,
+    // and is remembered for later visits.
+    const fromLink = new URLSearchParams(window.location.search).get("server")?.trim();
+    if (fromLink && /^(wss?|https?):\/\//i.test(fromLink))
+      localStorage.setItem("darkroom-ws-url", fromLink);
+    const stored = fromLink || localStorage.getItem("darkroom-ws-url") || DEFAULT_URL;
     if (stored) {
       setConnectionUrl(stored);
       setUrlDraft(stored);

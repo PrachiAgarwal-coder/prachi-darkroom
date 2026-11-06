@@ -116,6 +116,8 @@ def main():
     ap.add_argument("--n-ablation", type=int, default=40)
     ap.add_argument("--out", default=str(HERE / "results"))
     ap.add_argument("--skip-ablation", action="store_true")
+    ap.add_argument("--tiers", default="baseline,quality,balanced,lite", help="comma-separated subset to evaluate")
+    ap.add_argument("--no-root-copy", action="store_true", help="do not copy the report to the repo root")
     a = ap.parse_args()
 
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -123,13 +125,14 @@ def main():
     coco_prompts = [c["caption"] for c in caps]
     comp_prompts = [l.strip() for l in (HERE / "prompts_compositional.txt").read_text().splitlines() if l.strip()]
 
-    eng = Engine(load_baseline=True)
+    chosen = [t.strip() for t in a.tiers.split(",") if t.strip()]
+    eng = Engine(load_baseline="baseline" in chosen)
     dev = eng.device
     gpu = torch.cuda.get_device_name(0) if dev == "cuda" else dev
     results = {"device": gpu, "tiers": {}, "ablation": [], "created": time.strftime("%Y-%m-%d %H:%M")}
     all_comp = {}
 
-    for k in [t for t in TIER_ORDER if t in eng.available]:
+    for k in [t for t in TIER_ORDER if t in eng.available and t in chosen]:
         n = a.n_baseline if k == "baseline" else a.n
         print(f"\n=== {k}: {n} COCO prompts ===")
         rows = run_set(eng, coco_prompts[:n], k, out / "images" / k)
@@ -164,7 +167,7 @@ def main():
              dict(tier="balanced", post=dict(contrast=False, wb=False, sharp=False, upscale=True))),
             ("Post-processing", "Balanced, post-processing on", "fast_taesd", dict(tier="balanced")),
         ]
-        for group, label, pipe, kw in exps:
+        for group, label, pipe, kw in [e for e in exps if e[3]["tier"] in eng.available]:
             print(f"--- ablation: {label}")
             slug = label.lower().replace(" ", "_").replace(",", "").replace("(", "").replace(")", "")
             rows = run_set(eng, P, out_dir=out / "images" / f"abl_{slug}", **kw)
@@ -187,7 +190,7 @@ def main():
 
     (out / "results.json").write_text(json.dumps(results, indent=1, default=float))
     plot(results, out / "quality_vs_cost.png")
-    write_markdown(results, a, out)
+    write_markdown(results, a, out, root_copy=not a.no_root_copy)
     print(f"\nDone. See {out}/eval_P3_{a.team}.md")
 
 
@@ -205,7 +208,7 @@ def plot(results, path):
     fig.tight_layout(); fig.savefig(path)
 
 
-def write_markdown(R, a, out):
+def write_markdown(R, a, out, root_copy=True):
     T = R["tiers"]
     b = T.get("baseline")
     L = [", ".join(u.strip() for u in a.usns.split(",")), "",
@@ -279,7 +282,12 @@ def write_markdown(R, a, out):
     else:
         L.append("No verifier failures on this prompt set.")
     L += ["", "_Write the cause of at least three of these failures in docs/DESIGN.md §Failure analysis._", ""]
-    (out / f"eval_P3_{a.team}.md").write_text("\n".join(L))
+    text = "\n".join(L)
+    (out / f"eval_P3_{a.team}.md").write_text(text)
+    if root_copy:   # the submission asks for eval_<ProbID>_<TeamID>.md; keep a copy at the repo root as well
+        (HERE.parent / f"eval_P3_{a.team}.md").write_text(
+            text.replace("](quality_vs_cost.png)", "](eval/results/quality_vs_cost.png)")
+                .replace("](failures/", "](eval/results/failures/"))
 
 
 if __name__ == "__main__":

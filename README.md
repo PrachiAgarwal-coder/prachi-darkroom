@@ -411,6 +411,7 @@ uvicorn darkroom.server:app --host 0.0.0.0 --port 8000          # wait for "Appl
 cloudflared tunnel --url http://localhost:8000                  # prints https://<random>.trycloudflare.com
 ```
 - If the Lite tier errors on the Mac, restart the server with `DARKROOM_INT8=0` set.
+- Recent PyTorch builds need **macOS 15 or newer** for Apple-GPU (MPS) inference. On macOS 14 the process aborts with `MPSNDArray arrayViewWithShape:strides: unrecognized selector`. Either update macOS or force CPU with `DARKROOM_DEVICE=cpu` (works, but expect tens of seconds per image).
 - On non-CUDA devices peak GPU memory is not reported; the official memory numbers come from the CUDA evaluation run.
 
 **UI on Lovable:**

@@ -18,6 +18,9 @@ log = logging.getLogger("darkroom")
 
 
 def pick_device():
+    forced = os.getenv("DARKROOM_DEVICE")          # cuda | mps | cpu
+    if forced:
+        return forced
     if torch.cuda.is_available():
         return "cuda"
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():

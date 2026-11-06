@@ -389,7 +389,7 @@ npm run test                                # UI
 ```mermaid
 flowchart LR
     J([Judge's phone or laptop]) -->|HTTPS| L["Lovable hosting<br/>React UI"]
-    L -->|"WSS /ws · HTTPS /tiers"| M["Modal<br/>A10G GPU, one warm container<br/>server/darkroom"]
+    L -->|"WSS /ws · HTTPS /tiers"| M["Modal<br/>T4 GPU, warm during judging<br/>server/darkroom"]
     M -->|first start| HF[("Hugging Face Hub<br/>weights cached in a Modal volume")]
     C["Colab + Cloudflare tunnel<br/>(backup)"] -.->|same API| L
 ```
@@ -400,7 +400,7 @@ pip install modal
 modal setup                         # once: log in
 modal deploy deploy/modal_app.py    # from the repo root → prints https://<name>.modal.run
 ```
-- `min_containers=1` keeps one GPU warm so judges never hit a cold start. Set it to `0` after the event.
+- **Cost control.** By default the server runs on a T4 and scales to zero when idle (first request after idle cold-starts in about 2–4 min). For the judging window, keep one GPU warm with `DARKROOM_WARM=1 modal deploy deploy/modal_app.py`, then redeploy without it afterwards. `DARKROOM_GPU=A10G` selects a faster GPU.
 - **Backup:** the "Optional A" cells in the Colab notebook give a public URL in about 5 minutes.
 
 **UI on Lovable:**

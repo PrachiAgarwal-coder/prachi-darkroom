@@ -960,6 +960,7 @@ function Darkroom() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-darkroom-canvas text-foreground selection:bg-darkroom-violet/30">
+      <div className="darkroom-aurora" aria-hidden />
       <LatentField active={busy} />
       <div
         className="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_30%,transparent_10%,var(--darkroom-canvas)_95%)] opacity-90"
@@ -970,8 +971,10 @@ function Darkroom() {
         {/* ------------------------------------------------------------ header */}
         <header className="flex flex-wrap items-center justify-between gap-4 py-5">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl darkroom-gradient shadow-[0_8px_30px_-8px_var(--darkroom-violet)]">
-              <Moon className="h-5 w-5 text-white" />
+            <div className="darkroom-spin-border grid h-11 w-11 place-items-center rounded-2xl p-[2px] shadow-[0_8px_30px_-8px_var(--darkroom-violet)]">
+              <div className="grid h-full w-full place-items-center rounded-[14px] bg-darkroom-canvas">
+                <Moon className="h-5 w-5 text-darkroom-amber" />
+              </div>
             </div>
             <div>
               <div className="font-display text-2xl font-semibold leading-none tracking-tight">
@@ -1084,122 +1087,154 @@ function Darkroom() {
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="min-w-0 space-y-5">
                   {/* stage */}
-                  <div className="relative mx-auto aspect-square w-full max-w-[720px] overflow-hidden rounded-3xl border border-darkroom-panel-edge bg-darkroom-canvas shadow-[0_40px_120px_-50px_var(--darkroom-violet)]">
-                    {shownImage ? (
-                      <>
-                        <img
-                          className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
-                          src={result?.raw && result.processed ? result.raw : shownImage}
-                          alt={prompt ? `Generated scene: ${prompt}` : "Generated scene"}
-                        />
-                        {result?.raw && result.processed && (
-                          <img
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+                    className={`mx-auto w-full max-w-[720px] rounded-[26px] p-[2px] transition-shadow duration-700 ${
+                      busy
+                        ? "darkroom-spin-border shadow-[0_0_80px_-10px_var(--darkroom-violet)]"
+                        : "bg-darkroom-panel-edge shadow-[0_40px_120px_-50px_var(--darkroom-violet)]"
+                    }`}
+                  >
+                    <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-darkroom-canvas">
+                      {shownImage ? (
+                        <>
+                          <motion.img
+                            key={result ? `r-${result.processed.length}-${result.tier}` : "preview"}
+                            initial={
+                              result ? { opacity: 0.4, scale: 1.04, filter: "blur(10px)" } : false
+                            }
+                            animate={{
+                              opacity: 1,
+                              scale: 1,
+                              filter: busy
+                                ? `blur(${Math.max(0, (1 - step / Math.max(1, totalSteps)) * 14)}px) saturate(${0.6 + (step / Math.max(1, totalSteps)) * 0.4})`
+                                : "blur(0px) saturate(1)",
+                            }}
+                            transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
                             className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
-                            src={result.processed}
-                            alt=""
-                            style={{ clipPath: `inset(0 0 0 ${compareValue}%)` }}
+                            src={result?.raw && result.processed ? result.raw : shownImage}
+                            alt={prompt ? `Generated scene: ${prompt}` : "Generated scene"}
                           />
-                        )}
-                        {result?.raw && (
-                          <>
-                            <div
-                              className="pointer-events-none absolute inset-y-0 z-[5] w-0.5 bg-white/90 shadow-[0_0_14px_rgba(0,0,0,.7)]"
-                              style={{ left: `${compareValue}%` }}
-                            >
-                              <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/50 bg-black/60 text-white backdrop-blur">
-                                <ArrowLeftRight className="h-5 w-5" />
-                              </span>
-                            </div>
-                            <input
-                              className="absolute inset-0 z-[6] h-full w-full cursor-ew-resize opacity-0"
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={compareValue}
-                              onChange={(e) => setCompareValue(Number(e.target.value))}
-                              aria-label="Compare raw decode and post-processed image"
+                          {result?.raw && result.processed && (
+                            <img
+                              className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
+                              src={result.processed}
+                              alt=""
+                              style={{ clipPath: `inset(0 0 0 ${compareValue}%)` }}
                             />
-                            <span className="pointer-events-none absolute bottom-4 left-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-                              Raw decode
-                            </span>
-                            <span className="pointer-events-none absolute bottom-4 right-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-                              Post-processed
-                            </span>
-                          </>
-                        )}
-                        {showBoxes &&
-                          result?.detections.map((d, i) => (
-                            <div
-                              key={`${d.label}-${i}`}
-                              className="pointer-events-none absolute z-[8] rounded-md border-2"
-                              style={{
-                                borderColor: d.ok
-                                  ? "var(--darkroom-teal)"
-                                  : "var(--darkroom-coral)",
-                                borderStyle: d.ok ? "solid" : "dashed",
-                                left: `${d.box[0] * 100}%`,
-                                top: `${d.box[1] * 100}%`,
-                                width: `${(d.box[2] - d.box[0]) * 100}%`,
-                                height: `${(d.box[3] - d.box[1]) * 100}%`,
-                              }}
-                            >
-                              <span
-                                className="absolute -top-7 left-0 whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold text-black"
+                          )}
+                          {result?.raw && (
+                            <>
+                              <div
+                                className="pointer-events-none absolute inset-y-0 z-[5] w-0.5 bg-white/90 shadow-[0_0_14px_rgba(0,0,0,.7)]"
+                                style={{ left: `${compareValue}%` }}
+                              >
+                                <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/50 bg-black/60 text-white backdrop-blur">
+                                  <ArrowLeftRight className="h-5 w-5" />
+                                </span>
+                              </div>
+                              <input
+                                className="absolute inset-0 z-[6] h-full w-full cursor-ew-resize opacity-0"
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={compareValue}
+                                onChange={(e) => setCompareValue(Number(e.target.value))}
+                                aria-label="Compare raw decode and post-processed image"
+                              />
+                              <span className="pointer-events-none absolute bottom-4 left-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                                Raw decode
+                              </span>
+                              <span className="pointer-events-none absolute bottom-4 right-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                                Post-processed
+                              </span>
+                            </>
+                          )}
+                          {showBoxes &&
+                            result?.detections.map((d, i) => (
+                              <div
+                                key={`${d.label}-${i}`}
+                                className="pointer-events-none absolute z-[8] rounded-md border-2"
                                 style={{
-                                  background: d.ok
+                                  borderColor: d.ok
                                     ? "var(--darkroom-teal)"
                                     : "var(--darkroom-coral)",
+                                  borderStyle: d.ok ? "solid" : "dashed",
+                                  left: `${d.box[0] * 100}%`,
+                                  top: `${d.box[1] * 100}%`,
+                                  width: `${(d.box[2] - d.box[0]) * 100}%`,
+                                  height: `${(d.box[3] - d.box[1]) * 100}%`,
                                 }}
                               >
-                                {d.label} {Math.round(d.score * 100)}%
-                              </span>
+                                <span
+                                  className="absolute -top-7 left-0 whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold text-black"
+                                  style={{
+                                    background: d.ok
+                                      ? "var(--darkroom-teal)"
+                                      : "var(--darkroom-coral)",
+                                  }}
+                                >
+                                  {d.label} {Math.round(d.score * 100)}%
+                                </span>
+                              </div>
+                            ))}
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 grid place-items-center p-8 text-center">
+                          <div>
+                            <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
+                              <Sparkles className="h-7 w-7 text-darkroom-violet" />
                             </div>
-                          ))}
-                      </>
-                    ) : (
-                      <div className="absolute inset-0 grid place-items-center p-8 text-center">
-                        <div>
-                          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
-                            <Sparkles className="h-7 w-7 text-darkroom-violet" />
-                          </div>
-                          <p className="font-display text-2xl font-semibold sm:text-3xl">
-                            {busy ? "Forming from noise…" : "Describe a scene."}
-                          </p>
-                          <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
-                            {busy
-                              ? "The first frames arrive in a moment."
-                              : "It will form out of noise in a few steps. Try one of the examples below."}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {busy && (
-                      <div className="absolute right-4 top-4 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1.5 pl-1.5 pr-4 backdrop-blur-xl">
-                        <div className="relative grid h-11 w-11 place-items-center rounded-full p-[3px]">
-                          <div
-                            className="absolute inset-0 rounded-full"
-                            style={{
-                              background: `conic-gradient(var(--darkroom-violet) ${
-                                (step / Math.max(1, totalSteps)) * 360
-                              }deg, rgba(255,255,255,.12) 0deg)`,
-                            }}
-                          />
-                          <div className="relative grid h-full w-full place-items-center rounded-full bg-black text-xs font-semibold tabular-nums text-white">
-                            {step}/{totalSteps}
+                            <p className="font-display text-2xl font-semibold sm:text-3xl">
+                              {busy ? "Forming from noise…" : "Describe a scene."}
+                            </p>
+                            <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
+                              {busy
+                                ? "The first frames arrive in a moment."
+                                : "It will form out of noise in a few steps. Try one of the examples below."}
+                            </p>
                           </div>
                         </div>
-                        <span className="text-sm font-medium text-white">
-                          {jobState === "queued" ? "Waiting for GPU" : "Denoising"}
-                        </span>
-                      </div>
-                    )}
-                    {result && !busy && (
-                      <div className="absolute left-4 top-4 z-[9] rounded-full bg-black/60 px-3.5 py-2 text-sm font-medium tabular-nums text-white backdrop-blur">
-                        {TIER_LABEL[result.tier]} · {tiers[result.tier].steps} steps ·{" "}
-                        {latency.toFixed(2)} s
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {busy && (
+                        <div
+                          className="pointer-events-none absolute inset-0 z-[15] overflow-hidden"
+                          aria-hidden
+                        >
+                          <div className="darkroom-grain-live" />
+                          <div className="darkroom-scanline" />
+                        </div>
+                      )}
+                      {busy && (
+                        <div className="absolute right-4 top-4 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1.5 pl-1.5 pr-4 backdrop-blur-xl">
+                          <div className="relative grid h-11 w-11 place-items-center rounded-full p-[3px]">
+                            <div
+                              className="absolute inset-0 rounded-full"
+                              style={{
+                                background: `conic-gradient(var(--darkroom-violet) ${
+                                  (step / Math.max(1, totalSteps)) * 360
+                                }deg, rgba(255,255,255,.12) 0deg)`,
+                              }}
+                            />
+                            <div className="relative grid h-full w-full place-items-center rounded-full bg-black text-xs font-semibold tabular-nums text-white">
+                              {step}/{totalSteps}
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium text-white">
+                            {jobState === "queued" ? "Waiting for GPU" : "Denoising"}
+                          </span>
+                        </div>
+                      )}
+                      {result && !busy && (
+                        <div className="absolute left-4 top-4 z-[9] rounded-full bg-black/60 px-3.5 py-2 text-sm font-medium tabular-nums text-white backdrop-blur">
+                          {TIER_LABEL[result.tier]} · {tiers[result.tier].steps} steps ·{" "}
+                          {latency.toFixed(2)} s
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
 
                   {jobState === "error" && (
                     <div className="mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-darkroom-coral/30 bg-darkroom-coral/10 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1261,7 +1296,7 @@ function Darkroom() {
                       <Button
                         type="submit"
                         disabled={busy}
-                        className="darkroom-active h-14 shrink-0 gap-2 rounded-2xl px-7 text-base font-semibold sm:w-auto"
+                        className="darkroom-active darkroom-shimmer h-14 shrink-0 gap-2 rounded-2xl px-7 text-base font-semibold transition-transform hover:scale-[1.03] active:scale-95 sm:w-auto"
                       >
                         {busy ? (
                           <LoaderCircle className="h-5 w-5 animate-spin" />
@@ -1303,7 +1338,12 @@ function Darkroom() {
                     <h2 className="mb-3 font-display text-xl font-semibold">
                       {result ? "This image" : `${TIER_LABEL[activeTier]} tier, measured on a T4`}
                     </h2>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <motion.div
+                      className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                      initial="hidden"
+                      animate="show"
+                      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+                    >
                       <BigStat
                         label="Generation time"
                         value={
@@ -1360,7 +1400,7 @@ function Darkroom() {
                         }
                         note="blown highlights + crushed shadows"
                       />
-                    </div>
+                    </motion.div>
                   </section>
 
                   {/* checks */}
@@ -1549,7 +1589,7 @@ function Darkroom() {
                               <span
                                 className={`relative z-[1] h-[19px] w-[19px] rounded-full border-2 ${
                                   s.state === "run"
-                                    ? "darkroom-gradient darkroom-pulse border-transparent"
+                                    ? "darkroom-gradient darkroom-ripple border-transparent"
                                     : s.state === "ok"
                                       ? "border-darkroom-teal bg-darkroom-teal"
                                       : "border-darkroom-panel-edge bg-darkroom-canvas"
@@ -1615,21 +1655,38 @@ function Darkroom() {
             {view === "bench" && (
               <div className="space-y-10">
                 <section>
-                  <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                    {Math.round(base.gen_ms_mean / Math.max(1, balanced.gen_ms_mean))}× faster.{" "}
+                  <motion.h1
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="font-display text-4xl font-semibold tracking-tight sm:text-6xl"
+                  >
+                    <span className="darkroom-gradient-text">
+                      {Math.round(base.gen_ms_mean / Math.max(1, balanced.gen_ms_mean))}× faster.
+                    </span>{" "}
                     {(base.sizeMB / Math.max(1, lite.measured.sizeMB)).toFixed(1)}× smaller.
-                  </h1>
+                  </motion.h1>
                   <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
                     The optimised tiers against the 50-step FP32 baseline, measured on a Tesla T4
                     with fixed seeds over COCO captions.
                   </p>
                   <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {tierOrder.map((k) => {
+                    {tierOrder.map((k, idx) => {
                       const t = tiers[k];
                       const m = t.measured;
+                      const lo = Math.log10(200),
+                        hi = Math.log10(Math.max(1000, base.gen_ms_mean));
+                      const barPct = Math.max(
+                        4,
+                        ((Math.log10(Math.max(200, m.gen_ms_mean)) - lo) / (hi - lo)) * 100,
+                      );
                       return (
-                        <div
+                        <motion.div
                           key={k}
+                          initial={{ opacity: 0, y: 24 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + idx * 0.08, duration: 0.5 }}
+                          whileHover={{ y: -4 }}
                           className={`darkroom-glass rounded-3xl p-5 ${k === activeTier ? "ring-2 ring-darkroom-coral/70" : ""}`}
                         >
                           <div className="flex items-baseline justify-between">
@@ -1644,6 +1701,18 @@ function Darkroom() {
                             {(m.gen_ms_mean / 1000).toFixed(m.gen_ms_mean < 10000 ? 2 : 1)} s
                           </div>
                           <div className="text-sm text-muted-foreground">per image</div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${barPct}%` }}
+                              transition={{
+                                delay: 0.35 + idx * 0.1,
+                                duration: 1.1,
+                                ease: [0.2, 0.8, 0.2, 1],
+                              }}
+                              className={`h-full rounded-full ${k === "baseline" ? "bg-darkroom-dim" : "darkroom-gradient"}`}
+                            />
+                          </div>
                           <dl className="mt-4 grid grid-cols-2 gap-y-1.5 text-sm">
                             <dt className="text-muted-foreground">CLIP</dt>
                             <dd className="text-right tabular-nums">{m.clip.toFixed(3)}</dd>
@@ -1656,7 +1725,7 @@ function Darkroom() {
                             <dt className="text-muted-foreground">Resolution</dt>
                             <dd className="text-right tabular-nums">{t.res} px</dd>
                           </dl>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -1896,24 +1965,56 @@ function Darkroom() {
             {view === "how" && (
               <div className="space-y-10">
                 <section>
-                  <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                    From prompt to pixels in six stages
-                  </h1>
+                  <motion.h1
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="font-display text-4xl font-semibold tracking-tight sm:text-6xl"
+                  >
+                    From prompt to <span className="darkroom-gradient-text">pixels</span> in six
+                    stages
+                  </motion.h1>
                   <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
                     A Stable Diffusion 1.5 pipeline, distilled, quantised and wrapped in classical
                     computer vision.
                   </p>
-                  <ol className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="darkroom-flow-line mt-8 hidden lg:block" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                  <ol className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {PIPELINE.map((p, i) => (
-                      <li key={p[0]} className="darkroom-glass relative rounded-3xl p-6">
-                        <span className="font-display text-sm font-semibold text-darkroom-violet">
-                          Stage {i + 1}
+                      <motion.li
+                        key={p[0]}
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.08, duration: 0.5 }}
+                        whileHover={{ y: -5 }}
+                        className="darkroom-glass group relative overflow-hidden rounded-3xl p-6"
+                      >
+                        <span
+                          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-60"
+                          style={{
+                            background: [
+                              "var(--darkroom-violet)",
+                              "var(--darkroom-coral)",
+                              "var(--darkroom-amber)",
+                              "var(--darkroom-teal)",
+                              "var(--darkroom-violet)",
+                              "var(--darkroom-coral)",
+                            ][i],
+                          }}
+                          aria-hidden
+                        />
+                        <span className="font-display text-5xl font-semibold text-foreground/10">
+                          0{i + 1}
                         </span>
                         <h3 className="mt-2 font-display text-xl font-semibold">{p[0]}</h3>
                         <p className="mt-2 text-base leading-relaxed text-muted-foreground">
                           {p[1]}
                         </p>
-                      </li>
+                      </motion.li>
                     ))}
                   </ol>
                 </section>
@@ -1921,16 +2022,24 @@ function Darkroom() {
                 <section>
                   <h2 className="font-display text-2xl font-semibold">Five optimisations</h2>
                   <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {OPTIMISATIONS.map((o) => (
-                      <div key={o[0]} className="darkroom-glass rounded-3xl p-6">
+                    {OPTIMISATIONS.map((o, i) => (
+                      <motion.div
+                        key={o[0]}
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.06, duration: 0.4 }}
+                        whileHover={{ y: -4 }}
+                        className="darkroom-glass rounded-3xl p-6"
+                      >
                         <h3 className="font-display text-lg font-semibold">{o[0]}</h3>
                         <p className="mt-2 text-base leading-relaxed text-muted-foreground">
                           {o[1]}
                         </p>
-                        <p className="mt-4 font-display text-lg font-semibold text-darkroom-coral">
+                        <p className="darkroom-gradient-text mt-4 font-display text-2xl font-semibold">
                           {o[2]}
                         </p>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </section>
@@ -2109,15 +2218,26 @@ function BigStat({
   accent?: boolean;
 }) {
   return (
-    <div className="darkroom-glass rounded-2xl p-4 sm:p-5">
+    <motion.div
+      variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+      whileHover={{ y: -3 }}
+      className="darkroom-glass rounded-2xl p-4 transition-colors hover:border-darkroom-violet/40 sm:p-5"
+    >
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div
-        className={`mt-1.5 font-display text-2xl font-semibold tabular-nums sm:text-3xl ${accent ? "text-darkroom-coral" : ""}`}
-      >
-        {value}
-      </div>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={value}
+          initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.35 }}
+          className={`mt-1.5 font-display text-2xl font-semibold tabular-nums sm:text-3xl ${accent ? "darkroom-gradient-text" : ""}`}
+        >
+          {value}
+        </motion.div>
+      </AnimatePresence>
       {note && <div className="mt-1 text-sm text-muted-foreground">{note}</div>}
-    </div>
+    </motion.div>
   );
 }
 
@@ -2133,7 +2253,12 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="darkroom-glass rounded-3xl p-5">
+    <motion.section
+      initial={{ opacity: 0, x: 18 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+      className="darkroom-glass rounded-3xl p-5"
+    >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
           <Icon className="h-5 w-5 text-darkroom-violet" />
@@ -2146,7 +2271,7 @@ function Panel({
         )}
       </div>
       {children}
-    </section>
+    </motion.section>
   );
 }
 

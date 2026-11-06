@@ -403,6 +403,16 @@ modal deploy deploy/modal_app.py    # from the repo root → prints https://<nam
 - **Cost control.** By default the server runs on a T4 and scales to zero when idle (first request after idle cold-starts in about 2–4 min). For the judging window, keep one GPU warm with `DARKROOM_WARM=1 modal deploy deploy/modal_app.py`, then redeploy without it afterwards. `DARKROOM_GPU=A10G` selects a faster GPU.
 - **Backup:** the "Optional A" cells in the Colab notebook give a public URL in about 5 minutes.
 
+**Free alternative: serve from an Apple-silicon Mac with a public tunnel.** The engine runs on Apple's GPU through PyTorch's MPS backend. A Cloudflare quick tunnel gives the laptop a public HTTPS URL while it stays awake:
+```bash
+cd server && source ../.venv/bin/activate && pip install -r requirements.txt
+uvicorn darkroom.server:app --host 0.0.0.0 --port 8000          # wait for "Application startup complete"
+# second terminal:
+cloudflared tunnel --url http://localhost:8000                  # prints https://<random>.trycloudflare.com
+```
+- If the Lite tier errors on the Mac, restart the server with `DARKROOM_INT8=0` set.
+- On non-CUDA devices peak GPU memory is not reported; the official memory numbers come from the CUDA evaluation run.
+
 **UI on Lovable:**
 1. Set the environment variable `VITE_DARKROOM_WS=wss://<name>.modal.run/ws`.
 2. Publish.

@@ -95,6 +95,8 @@ class Engine:
 
         unet_lite = copy.deepcopy(fast.unet)
         try:
+            if os.getenv("DARKROOM_INT8", "1") != "1":
+                raise RuntimeError("disabled with DARKROOM_INT8=0")
             from optimum.quanto import freeze, qint8, quantize
             quantize(unet_lite, weights=qint8)
             freeze(unet_lite)

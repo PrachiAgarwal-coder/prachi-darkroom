@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Darkroom — on-device text-to-image</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&display=swap" rel="stylesheet">
+<style>
+/*
+  Darkroom — frontend for P3: Resource-Efficient Text-to-Image Generation.
+  Metaphor: a photographic darkroom. The image "develops" out of noise on the
+  plate under a safelight; once fixed, the glow ends and the numbers appear.
+
+  Backend contract (WebSocket, JSON messages) — see BACKEND PROTOCOL in the script.
+  With no backend URL set, the built-in demo engine runs so the UI is always demoable.
+*/
+:root{
+  --tray:#16100E;      /* developer tray, page background */
+  --tray-2:#201714;    /* raised surfaces */
+  --tray-3:#2B201B;    /* inputs, hover */
+  --line:#3B2D27;      /* hairlines */
+  --paper:#EFE4D2;     /* primary text, like photo paper */
+  --dim:#A3907E;       /* secondary text */
+  --faint:#6E5C50;
+  --amber:#FFA62B;     /* safelight: active, developing */
+  --amber-deep:#C9741A;
+  --teal:#7ED3C6;      /* fixer: optimized, passed */
+  --stop:#F0675C;      /* stop bath: errors, failed */
+  --r-sm:6px; --r-md:12px; --r-lg:22px;
+  --font:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--tray);color:var(--paper)}
+body{font-family:var(--font);font-size:16px;line-height:1.5;font-variation-settings:"wdth" 100;
+  -webkit-font-smoothing:antialiased;min-height:100vh;
+  background:
+    radial-gradient(1200px 700px at 30% -10%, rgba(255,166,43,.07), transparent 60%),
+    var(--tray);}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- header ---------- */
+header.top{display:flex;align-items:center;gap:20px;padding:18px clamp(16px,3vw,40px);border-bottom:1px solid var(--line)}
+.mark{display:flex;align-items:baseline;gap:12px}
+.mark b{font-size:26px;font-weight:760;letter-spacing:-.02em;font-variation-settings:"wdth" 78,"opsz" 96}
+.mark span{color:var(--dim);font-size:14px}
+.top .spacer{flex:1}
+.engine span{white-space:nowrap}
+@media (max-width:640px){.mark span{display:none}}
+.engine{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim);background:var(--tray-2);
+  border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 10px;cursor:pointer}
+.engine:hover{background:var(--tray-3)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.dot.demo{background:var(--amber)} .dot.live{background:var(--teal)} .dot.err{background:var(--stop)}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:clamp(20px,2.5vw,36px);
+  padding:clamp(16px,3vw,40px);max-width:1440px;margin:0 auto}
+@media (max-width:1020px){main{grid-template-columns:1fr}}
+
+/* ---------- prompt ---------- */
+.prompt{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch}
+.prompt textarea{resize:none;min-height:64px;background:var(--tray-2);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:14px 16px;font-size:18px;line-height:1.35;color:var(--paper)}
+.prompt textarea::placeholder{color:var(--faint)}
+.prompt textarea:focus{border-color:var(--amber-deep);outline:none;box-shadow:0 0 0 3px rgba(255,166,43,.15)}
+.go{background:var(--amber);color:#2A1607;border:0;border-radius:var(--r-md);padding:0 26px;
+  font-size:18px;font-weight:700;cursor:pointer;min-width:150px;transition:transform .12s,background .2s}
+.go:hover{background:#FFB547} .go:active{transform:scale(.97)}
+.go[disabled]{background:var(--tray-3);color:var(--dim);cursor:progress}
+@media (max-width:560px){.prompt{grid-template-columns:1fr}.go{min-height:52px}}
+.examples{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 22px}
+.examples button{background:none;border:1px solid var(--line);color:var(--dim);border-radius:999px;
+  padding:5px 12px;font-size:13.5px;cursor:pointer;text-align:left}
+.examples button:hover{color:var(--paper);border-color:var(--faint)}
+.examples .lbl{color:var(--faint);font-size:13.5px;padding:5px 0}
+
+/* ---------- the plate (the one bold thing) ---------- */
+.stage{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-content:start}
+.stage > .examples{margin:0 0 8px}
+.plate-wrap{position:relative;width:100%;max-width:640px;aspect-ratio:1;margin:0 auto;border-radius:var(--r-lg);
+  background:#0E0907;border:1px solid var(--line);overflow:hidden;
+  transition:box-shadow 1.2s ease}
+.plate-wrap.developing{box-shadow:0 0 0 1px rgba(255,166,43,.35),0 0 90px 10px rgba(255,140,30,.22),0 0 220px 40px rgba(255,120,20,.10)}
+.plate-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:auto}
+#rawPlate{clip-path:inset(0 50% 0 0);display:none}
+.plate-wrap.compare #rawPlate{display:block}
+.divider{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--paper);display:none;pointer-events:none;
+  box-shadow:0 0 12px rgba(0,0,0,.6)}
+.plate-wrap.compare .divider{display:block}
+.divider::before,.divider::after{position:absolute;top:12px;font-size:12px;background:rgba(22,16,14,.82);
+  padding:2px 8px;border-radius:999px;white-space:nowrap;color:var(--paper)}
+.divider::before{content:"Raw decode";right:10px}
+.divider::after{content:"Post-processed";left:10px}
+.compare-range{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;display:none;margin:0}
+.plate-wrap.compare .compare-range{display:block}
+
+.empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:32px;color:var(--dim)}
+.empty p{margin:0;max-width:30ch;font-size:17px}
+.empty .big{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.02em;color:var(--paper);
+  font-variation-settings:"wdth" 80,"opsz" 96;line-height:1.05;margin-bottom:10px}
+
+.boxes{position:absolute;inset:0;pointer-events:none}
+.box{position:absolute;border:1.5px solid var(--teal);border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.box.bad{border-color:var(--stop);border-style:dashed}
+.box span{position:absolute;left:-1.5px;top:-24px;font-size:12px;line-height:1;padding:5px 7px;border-radius:5px;
+  background:var(--teal);color:#0D2622;white-space:nowrap;font-weight:600}
+.box.bad span{background:var(--stop);color:#2A0A07}
+.plate-wrap.hide-boxes .boxes{display:none}
+
+.plate-hud{position:absolute;left:14px;bottom:14px;right:14px;display:flex;justify-content:space-between;gap:10px;
+  pointer-events:none;font-size:13px}
+.plate-hud span{background:rgba(22,16,14,.78);backdrop-filter:blur(6px);padding:4px 10px;border-radius:999px;color:var(--paper)}
+.plate-hud:empty{display:none}
+
+.errorPane{position:absolute;inset:0;display:none;place-content:center;text-align:center;padding:28px;
+  background:rgba(22,16,14,.92)}
+.errorPane.on{display:grid}
+.errorPane h3{margin:0 0 6px;font-size:22px;color:var(--stop)}
+.errorPane p{margin:0 auto 16px;max-width:42ch;color:var(--dim)}
+.errorPane .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+/* film edge: one tick per denoising step */
+.edge{max-width:640px;width:100%;margin:0 auto;display:flex;align-items:center;gap:14px}
+.ticks{flex:1;display:flex;gap:3px;height:14px}
+.ticks i{flex:1;border-radius:2px;background:var(--tray-3);transition:background .25s}
+.ticks i.on{background:var(--amber)}
+.ticks i.done{background:var(--teal)}
+.edge .lbl{font-size:14px;color:var(--dim);min-width:120px;text-align:right}
+
+.tools{max-width:640px;width:100%;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--tray-2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;
+  cursor:pointer;color:var(--dim)}
+.chip:hover{color:var(--paper)}
+.chip[aria-pressed="true"]{color:var(--paper);border-color:var(--amber-deep);background:rgba(255,166,43,.08)}
+.chip[disabled]{opacity:.45;cursor:not-allowed}
+
+.strip{max-width:640px;width:100%;margin:6px auto 0;display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.strip button{flex:0 0 72px;height:72px;border-radius:8px;border:1px solid var(--line);padding:0;overflow:hidden;cursor:pointer;background:#0E0907}
+.strip button img{width:100%;height:100%;object-fit:cover;display:block}
+.strip button.cur{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+
+/* ---------- rail ---------- */
+.rail{display:flex;flex-direction:column;gap:26px}
+.rail section h2{font-size:17px;font-weight:650;margin:0 0 12px;letter-spacing:-.005em;display:flex;justify-content:space-between;align-items:baseline}
+.rail section h2 small{font-size:13px;font-weight:400;color:var(--dim)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--tray-2);border:1px solid var(--line);
+  border-radius:10px;padding:3px;gap:3px}
+.seg button{background:none;border:0;border-radius:7px;padding:7px 4px;font-size:13.5px;color:var(--dim);cursor:pointer}
+.seg button[aria-checked="true"]{background:var(--tray-3);color:var(--paper);box-shadow:inset 0 0 0 1px var(--line)}
+.seg-label{font-size:13px;color:var(--dim);margin:12px 0 6px}
+.cfg{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14.5px}
+.cfg dt{color:var(--dim)} .cfg dd{margin:0;text-align:right}
+.budget{margin-top:14px}
+.bar{height:8px;border-radius:99px;background:var(--tray-3);overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--teal);border-radius:99px;transition:width .5s ease}
+.bar.over i{background:var(--stop)}
+.budget p{margin:6px 0 0;font-size:13.5px;color:var(--dim)}
+.notice{margin-top:12px;font-size:14px;padding:10px 12px;border-radius:10px;background:rgba(255,166,43,.08);
+  border:1px solid rgba(255,166,43,.3);color:var(--paper);display:none}
+.notice.on{display:block}
+
+.pipe{list-style:none;margin:0;padding:0;border-left:1px solid var(--line);margin-left:5px}
+.pipe li{position:relative;padding:0 0 12px 20px;display:flex;justify-content:space-between;gap:10px;font-size:14.5px}
+.pipe li::before{content:"";position:absolute;left:-5.5px;top:6px;width:10px;height:10px;border-radius:50%;
+  background:var(--tray);border:1.5px solid var(--faint)}
+.pipe li.run::before{border-color:var(--amber);background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.pipe li.ok::before{border-color:var(--teal);background:var(--teal)}
+.pipe li .what{display:flex;flex-direction:column}
+.pipe li .what small{color:var(--dim);font-size:12.5px}
+.pipe li .ms{color:var(--dim)}
+.pipe li.ok .ms{color:var(--paper)}
+.total{display:flex;justify-content:space-between;font-size:15px;padding-top:4px;border-top:1px solid var(--line);margin-top:2px}
+.total b{font-weight:650}
+
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.metrics div{background:var(--tray-2);padding:12px 14px}
+.metrics b{display:block;font-size:24px;font-weight:650;letter-spacing:-.01em;font-variation-settings:"opsz" 48}
+.metrics span{font-size:13px;color:var(--dim)}
+.metrics em{font-style:normal;font-size:12.5px;color:var(--teal);margin-left:4px}
+
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.checks li{display:flex;gap:10px;align-items:baseline}
+.checks li::before{content:"";flex:0 0 auto;width:16px;height:16px;border-radius:50%;transform:translateY(3px);
+  background:var(--tray-3)}
+.checks li.ok::before{background:var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.2l2.6 2.6L12 5.4' fill='none' stroke='%230D2622' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.checks li.bad::before{background:var(--stop) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 5l6 6M11 5l-6 6' fill='none' stroke='%232A0A07' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.checks .muted{color:var(--dim)}
+
+.toggles{display:flex;flex-direction:column;gap:2px}
+.toggles label{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:14.5px;cursor:pointer;border-bottom:1px solid var(--line)}
+.toggles label:last-child{border-bottom:0}
+.toggles small{display:block;color:var(--dim);font-size:12.5px}
+.sw{appearance:none;width:36px;height:20px;border-radius:99px;background:var(--tray-3);position:relative;cursor:pointer;flex:0 0 auto;margin:0;border:1px solid var(--line)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:transform .18s,background .18s}
+.sw:checked{background:rgba(126,211,198,.25);border-color:var(--teal)}
+.sw:checked::after{transform:translateX(16px);background:var(--teal)}
+
+/* ---------- race + pareto ---------- */
+.lower{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:clamp(20px,2.5vw,36px);
+  border-top:1px solid var(--line);padding-top:clamp(20px,3vw,36px)}
+@media (max-width:1020px){.lower{grid-template-columns:1fr}}
+.lower h2{font-size:clamp(24px,2.6vw,32px);font-weight:720;letter-spacing:-.02em;margin:0 0 6px;font-variation-settings:"wdth" 82,"opsz" 96;line-height:1.1}
+.lower p.sub{margin:0 0 18px;color:var(--dim);max-width:60ch}
+.lanes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:560px){.lanes{grid-template-columns:1fr}}
+.lane{background:var(--tray-2);border:1px solid var(--line);border-radius:16px;padding:12px}
+.lane header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;font-size:14.5px}
+.lane header b{font-weight:650}
+.lane header span{color:var(--dim);font-size:13px}
+.lane .mini{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#0E0907}
+.lane .mini canvas{width:100%;height:100%;display:block}
+.lane .clock{font-size:clamp(30px,3.4vw,44px);font-weight:700;letter-spacing:-.03em;margin:10px 0 2px;font-variation-settings:"wdth" 78,"opsz" 96;line-height:1}
+.lane.opt .clock{color:var(--teal)}
+.lane .meta{font-size:13px;color:var(--dim);display:flex;justify-content:space-between}
+.lane .bar{margin-top:8px}
+.lane.base .bar i{background:var(--amber)}
+.race-row{display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap}
+.btn{background:var(--tray-2);border:1px solid var(--line);border-radius:10px;padding:10px 18px;font-size:15px;cursor:pointer;color:var(--paper)}
+.btn:hover{background:var(--tray-3)}
+.btn.primary{background:var(--paper);color:var(--tray);border-color:var(--paper);font-weight:650}
+.btn.primary:hover{background:#fff}
+.btn[disabled]{opacity:.5;cursor:progress}
+.speedup{font-size:16px;color:var(--dim)} .speedup b{color:var(--paper);font-size:20px}
+
+.pareto svg{width:100%;height:auto;display:block}
+.pareto .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin-top:8px}
+.pareto table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:14px}
+.pareto th,.pareto td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line)}
+.pareto th:first-child,.pareto td:first-child{text-align:left}
+.pareto th{color:var(--dim);font-weight:500}
+.pareto tr.cur td{color:var(--amber)}
+
+footer{grid-column:1/-1;color:var(--faint);font-size:13px;padding:10px 0 30px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+/* ---------- dialog ---------- */
+dialog{background:var(--tray-2);color:var(--paper);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(480px,92vw)}
+dialog::backdrop{background:rgba(10,6,5,.7);backdrop-filter:blur(3px)}
+dialog h3{margin:0 0 6px;font-size:20px}
+dialog p{margin:0 0 14px;color:var(--dim);font-size:14.5px}
+dialog input{width:100%;background:var(--tray);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+dialog .row{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important}
+  .plate-wrap.developing{box-shadow:0 0 0 1px rgba(255,166,43,.5)}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="mark"><b>Darkroom</b><span>Text-to-image that fits in your pocket</span></div>
+  <div class="spacer"></div>
+  <button class="engine" id="engineBtn" type="button" aria-haspopup="dialog">
+    <i class="dot demo" id="engineDot"></i><span id="engineLabel">Demo engine</span>
+  </button>
+</header>
+
+<main>
+  <div class="stage">
+    <form class="prompt" id="promptForm">
+      <label for="prompt" class="sr">Describe the image</label>
+      <textarea id="prompt" rows="2" placeholder="Describe a scene: objects, colours, where things sit">a red cube to the left of a blue sphere on a wooden table at sunset</textarea>
+      <button class="go" id="goBtn" type="submit">Develop</button>
+    </form>
+    <div class="examples" id="examples">
+      <span class="lbl">Try</span>
+      <button type="button">a yellow auto rickshaw in front of a white temple at night</button>
+      <button type="button">a green cup on top of a brown book, studio lighting</button>
+      <button type="button">two orange cats beside a purple lamp</button>
+      <button type="button">a silver car below a pink moon in the desert</button>
+    </div>
+
+    <div class="plate-wrap" id="plateWrap">
+      <canvas id="plate" width="512" height="512" aria-label="Generated image"></canvas>
+      <canvas id="rawPlate" width="512" height="512" aria-hidden="true"></canvas>
+      <div class="divider" id="divider"></div>
+      <input class="compare-range" id="compareRange" type="range" min="0" max="100" value="50" aria-label="Move the raw versus processed divider">
+      <div class="boxes" id="boxes"></div>
+      <div class="empty" id="empty">
+        <div class="big">The plate is blank.</div>
+        <p>Describe a scene above and press Develop. Your image will form from noise in a few steps.</p>
+      </div>
+      <div class="plate-hud" id="hud"></div>
+      <div class="errorPane" id="errorPane" role="alert">
+        <div>
+          <h3 id="errTitle">Generation stopped</h3>
+          <p id="errMsg"></p>
+          <div class="row">
+            <button class="btn primary" type="button" id="errLite">Retry on Lite</button>
+            <button class="btn" type="button" id="errDemo">Use demo engine</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="edge">
+      <div class="ticks" id="ticks" aria-hidden="true"></div>
+      <span class="lbl num" id="stepLbl">Ready</span>
+    </div>
+
+    <div class="tools">
+      <button class="chip" type="button" id="tBoxes" aria-pressed="true">Detections</button>
+      <button class="chip" type="button" id="tCompare" aria-pressed="false" disabled>Raw vs processed</button>
+      <button class="chip" type="button" id="tSeed">Seed <span class="num" id="seedVal">—</span></button>
+      <button class="chip" type="button" id="tCopy" disabled>Copy run details</button>
+    </div>
+    <div class="strip" id="strip" aria-label="Previous images"></div>
+    <p class="sr" aria-live="polite" id="live"></p>
+  </div>
+
+  <aside class="rail">
+    <section>
+      <h2>Compute budget <small id="detected"></small></h2>
+      <div class="seg-label">Device</div>
+      <div class="seg" role="radiogroup" aria-label="Device" id="deviceSeg">
+        <button type="button" role="radio" data-v="auto" aria-checked="true">Auto</button>
+        <button type="button" role="radio" data-v="budget" aria-checked="false">Budget</button>
+        <button type="button" role="radio" data-v="mid" aria-checked="false">Mid</button>
+        <button type="button" role="radio" data-v="flagship" aria-checked="false">Flagship</button>
+      </div>
+      <div class="seg-label">Tier</div>
+      <div class="seg" role="radiogroup" aria-label="Tier" id="tierSeg">
+        <button type="button" role="radio" data-v="adaptive" aria-checked="true">Adaptive</button>
+        <button type="button" role="radio" data-v="lite" aria-checked="false">Lite</button>
+        <button type="button" role="radio" data-v="balanced" aria-checked="false">Balanced</button>
+        <button type="button" role="radio" data-v="quality" aria-checked="false">Quality</button>
+      </div>
+      <dl class="cfg" id="cfg"></dl>
+      <div class="budget">
+        <div class="bar" id="memBar"><i style="width:0"></i></div>
+        <p id="memTxt" class="num"></p>
+      </div>
+      <div class="notice" id="notice"></div>
+    </section>
+
+    <section>
+      <h2>Pipeline <small id="pipeState">Idle</small></h2>
+      <ol class="pipe" id="pipe"></ol>
+      <div class="total"><span>End to end</span><b class="num" id="totalMs">—</b></div>
+    </section>
+
+    <section>
+      <h2>This image</h2>
+      <div class="metrics" id="metrics">
+        <div><b class="num" id="mClip">—</b><span>CLIP similarity</span></div>
+        <div><b class="num" id="mLat">—</b><span>Latency</span></div>
+        <div><b class="num" id="mMem">—</b><span>Peak memory</span></div>
+        <div><b class="num" id="mSize">—</b><span>Model on disk</span></div>
+        <div><b class="num" id="mSharp">—</b><span>Sharpness (Laplacian var.)</span></div>
+        <div><b class="num" id="mClipPct">—</b><span>Clipped pixels</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Does it match the prompt? <small id="verifyNote"></small></h2>
+      <ul class="checks" id="checks"><li class="muted">Checks appear after the image is developed.</li></ul>
+      <div class="toggles" style="margin-top:12px">
+        <label>Retry automatically when a check fails<input class="sw" type="checkbox" id="autoRetry" checked></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Post-processing</h2>
+      <div class="toggles">
+        <label><span>Adaptive contrast<small>CLAHE on luminance</small></span><input class="sw" type="checkbox" id="ppContrast" checked></label>
+        <label><span>White balance<small>Gray-world correction</small></span><input class="sw" type="checkbox" id="ppWB" checked></label>
+        <label><span>Edge-aware sharpening<small>Unsharp mask on edges only</small></span><input class="sw" type="checkbox" id="ppSharp" checked></label>
+        <label><span>Upscale to 512 px<small>Lanczos when generated smaller</small></span><input class="sw" type="checkbox" id="ppUp" checked></label>
+      </div>
+    </section>
+  </aside>
+
+  <div class="lower">
+    <section>
+      <h2>Same prompt, two pipelines</h2>
+      <p class="sub">The unoptimised baseline runs 50 steps in full precision. Your current tier runs a distilled model in a handful of steps. Start both at once and watch the clocks.</p>
+      <div class="lanes">
+        <div class="lane base">
+          <header><b>Baseline</b><span>SD 1.5 · FP32 · 50 steps</span></header>
+          <div class="mini"><canvas id="raceBase" width="256" height="256"></canvas></div>
+          <div class="clock num" id="clockBase">0.00 s</div>
+          <div class="meta"><span>Peak memory</span><span class="num" id="memBase">—</span></div>
+          <div class="bar"><i id="memBaseBar" style="width:0"></i></div>
+        </div>
+        <div class="lane opt">
+          <header><b id="optName">Optimised</b><span id="optDesc"></span></header>
+          <div class="mini"><canvas id="raceOpt" width="256" height="256"></canvas></div>
+          <div class="clock num" id="clockOpt">0.00 s</div>
+          <div class="meta"><span>Peak memory</span><span class="num" id="memOpt">—</span></div>
+          <div class="bar"><i id="memOptBar" style="width:0"></i></div>
+        </div>
+      </div>
+      <div class="race-row">
+        <button class="btn primary" type="button" id="raceBtn">Start the race</button>
+        <span class="speedup" id="speedup"></span>
+      </div>
+    </section>
+
+    <section class="pareto">
+      <h2>Quality against cost</h2>
+      <p class="sub" id="paretoNote"></p>
+      <svg id="paretoSvg" viewBox="0 0 440 280" role="img" aria-label="Scatter of CLIP similarity against latency for each configuration"></svg>
+      <table id="paretoTable"></table>
+    </section>
+  </div>
+
+  <footer>
+    <span>Problem statement P3 · Resource-efficient text-to-image for mobile devices</span>
+    <span id="footEngine">Images are produced by our own optimised diffusion pipeline, not a third-party API.</span>
+  </footer>
+</main>
+
+<dialog id="settings">
+  <form method="dialog" id="settingsForm">
+    <h3>Generation engine</h3>
+    <p>Paste the WebSocket URL of your inference server, for example wss://your-app.modal.run/ws. Leave it empty to use the demo engine that runs in this page.</p>
+    <label class="sr" for="apiUrl">Server URL</label>
+    <input id="apiUrl" type="url" placeholder="wss://…/ws" autocomplete="off">
+    <div class="row">
+      <button class="btn" value="cancel" type="button" id="setCancel">Cancel</button>
+      <button class="btn primary" value="save" type="submit">Save engine</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/* ======================================================================
+   CONFIG — tiers mirror the backend. Numbers are replaced by the server's
+   measured values whenever a real backend is connected.
+   ====================================================================== */
+// Set this to your deployed server (wss://…/ws) so judges never touch settings.
+// If the page is served BY the backend (recommended), it is detected automatically.
+const DEFAULT_API = '';
+
+// Demo-engine estimates. Replaced by the server's measured numbers (GET /tiers) once connected.
+const TIERS = {
+  baseline:{key:'baseline',name:'Baseline',unet:'SD 1.5 UNet (860M)',steps:50,res:512,precision:'FP32',decoder:'Full VAE',
+    peakMB:6200,sizeMB:4260,encMs:30,stepMs:150,decMs:160,clip:.318,fail:.03},
+  quality:{key:'quality',name:'Quality',unet:'SD 1.5 + LCM-LoRA',steps:8,res:512,precision:'FP16',decoder:'Full VAE',
+    peakMB:2900,sizeMB:2130,encMs:12,stepMs:55,decMs:60,clip:.312,fail:.04},
+  balanced:{key:'balanced',name:'Balanced',unet:'SD 1.5 + LCM-LoRA',steps:4,res:512,precision:'FP16',decoder:'TAESD',
+    peakMB:2400,sizeMB:1970,encMs:12,stepMs:55,decMs:8,clip:.304,fail:.08},
+  lite:{key:'lite',name:'Lite',unet:'SD 1.5 + LCM-LoRA, INT8',steps:3,res:384,precision:'INT8',decoder:'TAESD',
+    peakMB:1500,sizeMB:1110,encMs:12,stepMs:70,decMs:5,clip:.289,fail:.17},
+};
+const DEVICES = {
+  budget:{name:'Budget phone',ramGB:4,allowMB:1800},
+  mid:{name:'Mid-range phone',ramGB:6,allowMB:2600},
+  flagship:{name:'Flagship phone',ramGB:12,allowMB:4200},
+};
+const ORDER = ['quality','balanced','lite']; // best first, used for adaptive selection and fallback
+
+/* ======================================================================
+   STATE
+   ====================================================================== */
+const S = {device:'auto', tier:'adaptive', seed:randSeed(), running:false, racing:false,
+  last:null, history:[], api:'', curIdx:-1};
+try{ S.api = localStorage.getItem('darkroom.api') || '' }catch(e){}
+
+const $ = id => document.getElementById(id);
+const plate = $('plate'), pctx = plate.getContext('2d', {willReadFrequently:true});
+const rawPlate = $('rawPlate'), rctx = rawPlate.getContext('2d');
+
+/* ---------- utilities ---------- */
+function randSeed(){ return Math.floor(Math.random()*2**31) }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296 } }
+function hashStr(s){ let h=2166136261; for(const c of s){ h^=c.charCodeAt(0); h=Math.imul(h,16777619) } return h>>>0 }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fmtMs(ms){ return ms>=1000 ? (ms/1000).toFixed(2)+' s' : Math.round(ms)+' ms' }
+function fmtMB(mb){ return mb>=1000 ? (mb/1000).toFixed(1)+' GB' : Math.round(mb)+' MB' }
+function say(t){ $('live').textContent = t }
+
+/* ======================================================================
+   DEVICE + TIER RESOLUTION (adaptive generation + resource-aware fallback)
+   ====================================================================== */
+function detectDevice(){
+  const mem = navigator.deviceMemory;            // Chromium only; rounded GB
+  const cores = navigator.hardwareConcurrency || 4;
+  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  let k;
+  if(mem!==undefined){ k = mem<=3 ? 'budget' : mem<=6 ? 'mid' : 'flagship' }
+  else { k = mobile ? (cores<=6 ? 'mid' : 'flagship') : 'flagship' }
+  return {key:k, mem, cores, mobile};
+}
+const DETECTED = detectDevice();
+
+function resolve(){
+  const devKey = S.device==='auto' ? DETECTED.key : S.device;
+  const dev = DEVICES[devKey];
+  let tierKey, fellBack=null;
+  if(S.tier==='adaptive'){
+    tierKey = ORDER.find(k=>TIERS[k].peakMB<=dev.allowMB) || 'lite';
+  } else {
+    tierKey = S.tier;
+    if(TIERS[tierKey].peakMB>dev.allowMB){
+      const fit = ORDER.slice(ORDER.indexOf(tierKey)).find(k=>TIERS[k].peakMB<=dev.allowMB) || 'lite';
+      fellBack = {from:tierKey,to:fit}; tierKey = fit;
+    }
+  }
+  return {dev, devKey, tier:TIERS[tierKey], fellBack};
+}
+
+function renderBudget(){
+  const r = resolve(), t = r.tier;
+  $('detected').textContent = S.device==='auto'
+    ? `Detected: ${DEVICES[DETECTED.key].name.toLowerCase()}` : '';
+  $('cfg').innerHTML = `
+    <dt>Running</dt><dd><b>${t.name}</b></dd>
+    <dt>Denoiser</dt><dd>${t.unet}</dd>
+    <dt>Steps</dt><dd class="num">${t.steps}</dd>
+    <dt>Resolution</dt><dd class="num">${t.res} × ${t.res}</dd>
+    <dt>Precision</dt><dd>${t.precision}</dd>
+    <dt>Decoder</dt><dd>${t.decoder}</dd>`;
+  const pct = Math.min(100, t.peakMB/r.dev.allowMB*100);
+  const bar = $('memBar'); bar.querySelector('i').style.width = pct+'%';
+  bar.classList.toggle('over', t.peakMB>r.dev.allowMB);
+  $('memTxt').textContent = `${fmtMB(t.peakMB)} peak of the ${fmtMB(r.dev.allowMB)} this ${r.dev.name.toLowerCase()} can give the app`;
+  const n = $('notice');
+  if(r.fellBack){
+    n.innerHTML = `${TIERS[r.fellBack.from].name} needs ${fmtMB(TIERS[r.fellBack.from].peakMB)}, more than this device allows. Falling back to <b>${t.name}</b> so generation still completes.`;
+    n.classList.add('on');
+  } else n.classList.remove('on');
+  $('optName').textContent = t.name;
+  $('optDesc').textContent = `${t.unet.split(' (')[0]} · ${t.precision} · ${t.steps} steps`;
+  renderTicks(t.steps, 0);
+  renderPipe(t, {});
+  renderPareto(t.key);
+}
+
+function bindSeg(id, key){
+  $(id).addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b || S.running) return;
+    S[key] = b.dataset.v;
+    $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked', x===b));
+    renderBudget();
+  });
+}
+bindSeg('deviceSeg','device'); bindSeg('tierSeg','tier');
+
+/* ======================================================================
+   PIPELINE + TICKS
+   ====================================================================== */
+const STAGES = [
+  ['encode','Prompt encoding','CLIP text encoder'],
+  ['denoise','Denoising','UNet in latent space'],
+  ['decode','Latent decode',''],
+  ['post','Classical post-processing','Contrast, white balance, sharpening'],
+  ['qa','Quality check','Blur, clipping and artifact detection'],
+  ['verify','Prompt verification','Open-vocabulary detector'],
+];
+function renderPipe(t, st){
+  $('pipe').innerHTML = STAGES.map(([k,label,sub])=>{
+    const s = st[k]||{}; const cls = s.state||'';
+    const subtxt = k==='decode' ? t.decoder : k==='denoise' ? `${t.steps} steps · ${t.precision}` : sub;
+    return `<li class="${cls}"><span class="what">${label}<small>${subtxt}</small></span><span class="ms num">${s.ms!=null?fmtMs(s.ms):''}</span></li>`;
+  }).join('');
+}
+function renderTicks(n, done, active){
+  const tk = $('ticks');
+  if(tk.children.length!==n){ tk.innerHTML = '<i></i>'.repeat(n) }
+  [...tk.children].forEach((el,i)=>{ el.className = i<done ? 'done' : (i===done && active ? 'on' : '') });
+}
+
+/* ======================================================================
+   PROMPT → SCENE (demo engine). The real model ignores this; it exists so
+   the demo produces images that actually reflect objects, colours and layout.
+   ====================================================================== */
+const COLORS = {red:'#D8433A',blue:'#3D6FD6',green:'#3F9E5A',yellow:'#F2C230',orange:'#EE8A2A',purple:'#8B55C9',
+  pink:'#EE86B4',white:'#EDE8DF',black:'#26211F',brown:'#8A5A3B',gray:'#8F8F8F',grey:'#8F8F8F',gold:'#D4A93A',
+  golden:'#D4A93A',silver:'#BFC4C9',teal:'#2FA39A',maroon:'#7A2230'};
+const NOUNS = {
+  sphere:'round',ball:'round',orb:'round',apple:'round',moon:'moon',sun:'moon',planet:'round',balloon:'round',
+  cube:'cube',box:'cube',block:'cube',crate:'cube',dice:'cube',gift:'cube',
+  pyramid:'tri',cone:'tri',tree:'tree',mountain:'tri',
+  cylinder:'cyl',cup:'cyl',mug:'cyl',vase:'cyl',bottle:'cyl',can:'cyl',candle:'cyl',
+  house:'house',hut:'house',temple:'house',building:'house',
+  cat:'animal',cats:'animal',dog:'animal',dogs:'animal',fox:'animal',rabbit:'animal',bird:'animal',
+  car:'car',bus:'car',rickshaw:'car',auto:'car',truck:'car',
+  lamp:'lamp',lamps:'lamp',book:'book',books:'book',person:'person',girl:'person',boy:'person',man:'person',woman:'person',
+};
+const NUMS = {two:2,three:3,four:4};
+const RELS = [['to the left of','left'],['left of','left'],['to the right of','right'],['right of','right'],
+  ['on top of','on'],['on','on'],['above','above'],['over','above'],['under','below'],['below','below'],['beneath','below'],
+  ['in front of','front'],['behind','behind'],['next to','beside'],['beside','beside']];
+
+function parsePrompt(p){
+  const text = ' '+p.toLowerCase().replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ')+' ';
+  const words = text.trim().split(' ');
+  const objs=[], rels=[]; let color=null, count=1, pendingRel=null;
+  for(let i=0;i<words.length;i++){
+    const w = words[i];
+    // relation phrases (longest first)
+    let matched=null;
+    for(const [ph,r] of RELS){ const pw = ph.split(' '); if(pw.every((x,j)=>words[i+j]===x)){ matched=[pw.length,r]; break } }
+    if(matched && objs.length){
+      // "on" only counts as a relation when an object follows soon
+      pendingRel = {a:objs.length-1, rel:matched[1]}; i += matched[0]-1; continue;
+    }
+    if(NUMS[w]){ count=NUMS[w]; continue }
+    if(COLORS[w] && !(w==='orange' && !NOUNS[words[i+1]] && !COLORS[words[i+1]] && words[i+1]!=='and')){ color=w; continue }
+    if(NOUNS[w]){
+      // "auto rickshaw" → one car
+      if(w==='auto' && words[i+1]==='rickshaw'){ continue }
+      const base = w.replace(/s$/,'');
+      for(let c=0;c<count;c++){ objs.push({noun:base in NOUNS?base:w, kind:NOUNS[w], color: color||null}) }
+      if(pendingRel){ rels.push({a:pendingRel.a, rel:pendingRel.rel, b:objs.length-1}); pendingRel=null }
+      color=null; count=1;
+    }
+  }
+  let bg='studio';
+  for(const k of ['sunset','night','beach','ocean','forest','desert','snow','city','space','studio','table','kitchen']){
+    if(text.includes(' '+k)){ bg=k; break }
+  }
+  const surface = /wooden|wood|table/.test(text) ? 'wood' : null;
+  return {objs, rels, bg, surface};
+}
+
+function layoutScene(scene, rng){
+  const n = scene.objs.length;
+  scene.objs.forEach((o,i)=>{
+    o.x = (i+1)/(n+1) + (rng()-.5)*.04;
+    o.y = .70 + (rng()-.5)*.03;
+    o.s = (n>3 ? .15 : .2) * (o.kind==='moon'?0.8:o.kind==='house'?1.25:o.kind==='car'?1.2:1);
+    if(!o.color) o.color = Object.keys(COLORS)[Math.floor(rng()*8)];
+    if(o.kind==='moon'){ o.y=.24 }
+  });
+  for(const r of scene.rels){
+    const A=scene.objs[r.a], B=scene.objs[r.b]; if(!A||!B) continue;
+    if(r.rel==='left' && A.x>B.x){ [A.x,B.x]=[B.x,A.x] }
+    if(r.rel==='right' && A.x<B.x){ [A.x,B.x]=[B.x,A.x] }
+    if(r.rel==='on'){ A.x=B.x; A.s=Math.min(A.s,B.s*.8); A.y = B.y - B.s*(B.kind==='book'?.32:.95) }
+    if(r.rel==='above'){ A.x=B.x; A.y = Math.min(B.y - B.s*1.6, .3) }
+    if(r.rel==='below'){ if(B.kind!=='moon'){ B.y = Math.min(A.y - A.s*1.6, .3) } A.x=B.x }
+    if(r.rel==='front'){ A.y=Math.min(.84,B.y+.1); A.s*=1.15; B.s*=.85; if(Math.abs(A.x-B.x)<.08) A.x+= .12 }
+    if(r.rel==='behind'){ A.y=B.y-.08; A.s*=.85 }
+    if(r.rel==='beside' && Math.abs(A.x-B.x)<.2){ A.x = B.x - .25 }
+  }
+  scene.objs.forEach(o=>{ o.x=Math.max(.14,Math.min(.86,o.x)) });
+  // draw back-to-front
+  scene.draw = scene.objs.map((o,i)=>({o,i})).sort((a,b)=>a.o.y-b.o.y);
+  return scene;
+}
+
+function shade(hex, f){ // f<0 darker, f>0 lighter
+  const n=parseInt(hex.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255;
+  const t=f<0?0:255, p=Math.abs(f);
+  r=Math.round((t-r)*p+r); g=Math.round((t-g)*p+g); b=Math.round((t-b)*p+b);
+  return `rgb(${r},${g},${b})`;
+}
+
+function paintScene(scene, size, rng){
+  const c = document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d');
+  const W=size;
+  const skies = {
+    sunset:['#2B1B3D','#B3466A','#F39B4C'], night:['#06081A','#16224A','#2C3B6B'], beach:['#7FC4E8','#BFE3F2','#F2E6C8'],
+    ocean:['#2E6BA8','#6CB2DC','#C9E6F2'], forest:['#2F4A35','#5E8A5C','#A9C79A'], desert:['#E7A35E','#F2C88E','#F7E3B8'],
+    snow:['#AFC3D6','#DCE6EF','#F5F8FB'], city:['#202634','#4A5468','#9AA3B3'], space:['#020207','#0B0B22','#1A1238'],
+    studio:['#3A3330','#6A5E57','#9C8E84'], table:['#3A3330','#6A5E57','#9C8E84'], kitchen:['#BFA88C','#D9C7AE','#EFE3D0']};
+  const sk = skies[scene.bg]||skies.studio;
+  let gr = g.createLinearGradient(0,0,0,W*.62);
+  gr.addColorStop(0,sk[0]); gr.addColorStop(.6,sk[1]); gr.addColorStop(1,sk[2]);
+  g.fillStyle=gr; g.fillRect(0,0,W,W);
+  if(scene.bg==='night'||scene.bg==='space'){ for(let i=0;i<120;i++){ g.fillStyle=`rgba(255,255,255,${rng()*.8})`; g.fillRect(rng()*W,rng()*W*.6,1.2,1.2) } }
+  if(scene.bg==='sunset'){ const sg=g.createRadialGradient(W*.7,W*.58,0,W*.7,W*.58,W*.35); sg.addColorStop(0,'rgba(255,214,140,.95)'); sg.addColorStop(1,'rgba(255,160,80,0)'); g.fillStyle=sg; g.fillRect(0,0,W,W) }
+  if(scene.bg==='city'){ g.fillStyle='#151A24'; for(let x=0;x<W;x+=W*.07){ const h=W*(.12+rng()*.22); g.fillRect(x,W*.62-h,W*.06,h) } }
+  if(scene.bg==='forest'){ for(let i=0;i<9;i++){ const x=rng()*W, h=W*(.15+rng()*.2); g.fillStyle=shade('#2F5A3A',-rng()*.3); g.beginPath(); g.moveTo(x,W*.62-h); g.lineTo(x-W*.06,W*.62); g.lineTo(x+W*.06,W*.62); g.fill() } }
+  // ground / surface
+  const groundTop = W*.6;
+  let gg = g.createLinearGradient(0,groundTop,0,W);
+  const ground = scene.surface==='wood' ? ['#6B4428','#4A2D1A'] : {beach:['#E8D3A6','#CDB27F'],desert:['#E2B47A','#C08A4E'],snow:['#E9EEF3','#C7D2DC'],ocean:['#2D6B9A','#173E5E'],night:['#1A1C2A','#0D0E16'],space:['#15122A','#08070F'],forest:['#3C5B34','#253A20'],city:['#2D3240','#191C25'],sunset:['#4A2B3A','#24131E']}[scene.bg] || ['#4B403A','#2C2522'];
+  gg.addColorStop(0,ground[0]); gg.addColorStop(1,ground[1]); g.fillStyle=gg; g.fillRect(0,groundTop,W,W-groundTop);
+  if(scene.surface==='wood'){ g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=W/256; for(let y=groundTop+6;y<W;y+=W*.035){ g.beginPath(); g.moveTo(0,y); g.bezierCurveTo(W*.3,y+3,W*.6,y-3,W,y+1); g.stroke() } }
+  const light = scene.bg==='sunset' ? {x:.7,y:.55} : {x:.25,y:.15};
+
+  for(const {o} of scene.draw){
+    const cx=o.x*W, base=o.y*W, s=o.s*W, col=COLORS[o.color]||'#999';
+    // contact shadow
+    if(o.kind!=='moon'){ g.fillStyle='rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(cx+(.5-light.x)*s*.4, base+s*.04, s*.55, s*.12, 0,0,Math.PI*2); g.fill() }
+    g.save();
+    switch(o.kind){
+      case 'round': case 'moon': {
+        const cy = o.kind==='moon'? base : base - s*.5;
+        const rg = g.createRadialGradient(cx-(.5-light.x)*-s*.0 - s*.18, cy - s*.2, s*.05, cx, cy, s*.55);
+        rg.addColorStop(0, shade(col,.45)); rg.addColorStop(.55,col); rg.addColorStop(1, shade(col,-.55));
+        g.fillStyle=rg; g.beginPath(); g.arc(cx,cy,s*.5,0,Math.PI*2); g.fill();
+        if(o.kind==='moon'){ g.fillStyle=`rgba(255,255,255,.08)`; g.beginPath(); g.arc(cx,cy,s*.8,0,Math.PI*2); g.fill() }
+        break }
+      case 'cube': {
+        const h=s*.8, d=s*.28;
+        g.fillStyle=col; g.fillRect(cx-h/2, base-h, h, h);
+        g.fillStyle=shade(col,.3); g.beginPath(); g.moveTo(cx-h/2,base-h); g.lineTo(cx-h/2+d,base-h-d*.7); g.lineTo(cx+h/2+d,base-h-d*.7); g.lineTo(cx+h/2,base-h); g.fill();
+        g.fillStyle=shade(col,-.35); g.beginPath(); g.moveTo(cx+h/2,base-h); g.lineTo(cx+h/2+d,base-h-d*.7); g.lineTo(cx+h/2+d,base-d*.7); g.lineTo(cx+h/2,base); g.fill();
+        break }
+      case 'tri': case 'tree': {
+        if(o.kind==='tree'){ g.fillStyle='#5A3A22'; g.fillRect(cx-s*.06,base-s*.3,s*.12,s*.3) }
+        const lg=g.createLinearGradient(cx-s*.5,0,cx+s*.5,0); lg.addColorStop(0,shade(col,.25)); lg.addColorStop(1,shade(col,-.45));
+        g.fillStyle=lg; g.beginPath(); g.moveTo(cx,base-s*1.15); g.lineTo(cx-s*.45,base-(o.kind==='tree'?s*.25:0)); g.lineTo(cx+s*.45,base-(o.kind==='tree'?s*.25:0)); g.fill();
+        break }
+      case 'cyl': {
+        const w=s*.5,h=s*.75; const lg=g.createLinearGradient(cx-w/2,0,cx+w/2,0);
+        lg.addColorStop(0,shade(col,-.3)); lg.addColorStop(.35,shade(col,.35)); lg.addColorStop(1,shade(col,-.5));
+        g.fillStyle=lg; g.fillRect(cx-w/2,base-h,w,h); g.beginPath(); g.ellipse(cx,base,w/2,w*.16,0,0,Math.PI); g.fill();
+        g.fillStyle=shade(col,-.6); g.beginPath(); g.ellipse(cx,base-h,w/2,w*.16,0,0,Math.PI*2); g.fill();
+        if(o.noun==='cup'||o.noun==='mug'){ g.strokeStyle=shade(col,-.2); g.lineWidth=s*.06; g.beginPath(); g.arc(cx+w/2,base-h*.5,h*.2,-Math.PI/2,Math.PI/2); g.stroke() }
+        break }
+      case 'house': {
+        const w=s*.9,h=s*.6; g.fillStyle=col; g.fillRect(cx-w/2,base-h,w,h);
+        g.fillStyle=shade(col,-.4); g.beginPath(); g.moveTo(cx-w*.6,base-h); g.lineTo(cx,base-h-s*.45); g.lineTo(cx+w*.6,base-h); g.fill();
+        g.fillStyle=scene.bg==='night'?'#F7D27A':shade(col,-.55); g.fillRect(cx-w*.1,base-h*.55,w*.2,h*.55);
+        g.fillRect(cx-w*.38,base-h*.75,w*.16,h*.2); g.fillRect(cx+w*.22,base-h*.75,w*.16,h*.2);
+        break }
+      case 'animal': {
+        const rg=g.createRadialGradient(cx-s*.1,base-s*.45,s*.05,cx,base-s*.3,s*.5); rg.addColorStop(0,shade(col,.35)); rg.addColorStop(1,shade(col,-.45));
+        g.fillStyle=rg; g.beginPath(); g.ellipse(cx,base-s*.25,s*.38,s*.25,0,0,Math.PI*2); g.fill();
+        g.beginPath(); g.arc(cx+s*.25,base-s*.55,s*.18,0,Math.PI*2); g.fill();
+        g.beginPath(); g.moveTo(cx+s*.13,base-s*.66); g.lineTo(cx+s*.17,base-s*.86); g.lineTo(cx+s*.25,base-s*.7); g.fill();
+        g.beginPath(); g.moveTo(cx+s*.27,base-s*.7); g.lineTo(cx+s*.36,base-s*.86); g.lineTo(cx+s*.4,base-s*.64); g.fill();
+        g.strokeStyle=shade(col,-.3); g.lineWidth=s*.07; g.lineCap='round'; g.beginPath(); g.moveTo(cx-s*.35,base-s*.3); g.quadraticCurveTo(cx-s*.6,base-s*.5,cx-s*.48,base-s*.75); g.stroke();
+        break }
+      case 'car': {
+        const w=s*1.0,h=s*.32; g.fillStyle=col; g.beginPath(); g.roundRect(cx-w/2,base-h-s*.08,w,h,s*.08); g.fill();
+        g.fillStyle=shade(col,-.25); g.beginPath(); g.roundRect(cx-w*.3,base-h-s*.36,w*.55,s*.3,s*.1); g.fill();
+        g.fillStyle='rgba(200,225,240,.7)'; g.fillRect(cx-w*.24,base-h-s*.3,w*.2,s*.18); g.fillRect(cx+w*.0,base-h-s*.3,w*.18,s*.18);
+        g.fillStyle='#161616'; g.beginPath(); g.arc(cx-w*.3,base-s*.08,s*.11,0,Math.PI*2); g.arc(cx+w*.3,base-s*.08,s*.11,0,Math.PI*2); g.fill();
+        break }
+      case 'lamp': {
+        g.fillStyle=shade(col,-.4); g.fillRect(cx-s*.03,base-s*.7,s*.06,s*.7); g.fillRect(cx-s*.2,base-s*.05,s*.4,s*.05);
+        const lg=g.createRadialGradient(cx,base-s*.75,0,cx,base-s*.75,s*.6); lg.addColorStop(0,'rgba(255,220,150,.55)'); lg.addColorStop(1,'rgba(255,220,150,0)');
+        g.fillStyle=lg; g.fillRect(cx-s*.7,base-s*1.4,s*1.4,s*1.4);
+        g.fillStyle=col; g.beginPath(); g.moveTo(cx-s*.3,base-s*.62); g.lineTo(cx-s*.16,base-s*1.0); g.lineTo(cx+s*.16,base-s*1.0); g.lineTo(cx+s*.3,base-s*.62); g.fill();
+        break }
+      case 'book': {
+        const w=s*.95,h=s*.22; g.fillStyle=shade(col,-.2); g.fillRect(cx-w/2,base-h,w,h);
+        g.fillStyle='#EDE4D2'; g.fillRect(cx-w/2+s*.03,base-h+s*.03,w-s*.06,h*.35);
+        g.fillStyle=col; g.fillRect(cx-w/2,base-h-s*.03,w,s*.05);
+        break }
+      case 'person': {
+        g.fillStyle=col; g.beginPath(); g.roundRect(cx-s*.18,base-s*.75,s*.36,s*.75,s*.12); g.fill();
+        g.fillStyle='#C8906A'; g.beginPath(); g.arc(cx,base-s*.9,s*.14,0,Math.PI*2); g.fill();
+        break }
+    }
+    g.restore();
+    // remember the box in normalised coords for the verifier overlay
+    const ext = {round:[.55,1.02],moon:[.55,.55],cube:[.55,1.0],tri:[.5,1.2],tree:[.5,1.2],cyl:[.4,.85],house:[.62,1.1],animal:[.5,.95],car:[.62,.75],lamp:[.35,1.05],book:[.52,.3],person:[.25,1.08]}[o.kind];
+    const top = o.kind==='moon' ? base - s*.5 : base - s*ext[1];
+    const bottom = o.kind==='moon' ? base + s*.5 : base + s*.04;
+    o.box=[ (cx-s*ext[0])/W, top/W, (cx+s*ext[0])/W, bottom/W ];
+  }
+  // fine grain so it reads as a photo
+  const id=g.getImageData(0,0,W,W), d=id.data;
+  for(let i=0;i<d.length;i+=4){ const n=(rng()-.5)*10; d[i]+=n; d[i+1]+=n; d[i+2]+=n }
+  g.putImageData(id,0,0);
+  return c;
+}
+
+/* ======================================================================
+   DIFFUSION VISUAL (demo): noise → blurred target → sharp target
+   ====================================================================== */
+function makeNoise(size, seed){
+  const r=mulberry32(seed), a=new Uint8ClampedArray(size*size*3);
+  for(let i=0;i<a.length;i++){ a[i] = ((r()+r()+r())/3)*255 }
+  return a;
+}
+const tmpSmall = document.createElement('canvas'), tmpFull = document.createElement('canvas');
+function developFrame(target, sigma, noise, ctx, size){
+  // blur by resampling: the noisier the step, the coarser the structure
+  const k = Math.max(4, Math.round(size * Math.pow(1-sigma, 2.2)));
+  tmpSmall.width=tmpSmall.height=k; const s=tmpSmall.getContext('2d');
+  s.imageSmoothingEnabled=true; s.drawImage(target,0,0,k,k);
+  tmpFull.width=tmpFull.height=size; const f=tmpFull.getContext('2d',{willReadFrequently:true});
+  f.imageSmoothingEnabled=true; f.imageSmoothingQuality='high'; f.drawImage(tmpSmall,0,0,size,size);
+  const id=f.getImageData(0,0,size,size), d=id.data;
+  const a = Math.min(1, sigma*1.05);
+  for(let p=0,q=0;p<d.length;p+=4,q+=3){
+    d[p]  = d[p]*(1-a)   + noise[q]*a;
+    d[p+1]= d[p+1]*(1-a) + noise[q+1]*a;
+    d[p+2]= d[p+2]*(1-a) + noise[q+2]*a;
+  }
+  f.putImageData(id,0,0);
+  ctx.imageSmoothingQuality='high';
+  ctx.drawImage(tmpFull,0,0,ctx.canvas.width,ctx.canvas.height);
+}
+
+/* ======================================================================
+   CLASSICAL POST-PROCESSING (runs for real, in the browser)
+   ====================================================================== */
+function postProcess(imgData, opts){
+  const d=imgData.data, n=d.length/4, W=imgData.width, H=imgData.height;
+  if(opts.wb){ // gray-world white balance with clamped gains
+    let r=0,g=0,b=0; for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2] }
+    r/=n; g/=n; b/=n; const m=(r+g+b)/3, cl=x=>Math.max(.85,Math.min(1.18,x));
+    const gr=cl(m/r), gg=cl(m/g), gb=cl(m/b);
+    for(let i=0;i<d.length;i+=4){ d[i]*=gr; d[i+1]*=gg; d[i+2]*=gb }
+  }
+  if(opts.contrast){ // contrast-limited histogram equalisation on luminance, blended
+    const hist=new Float64Array(256), Y=new Float32Array(n);
+    for(let i=0,j=0;i<d.length;i+=4,j++){ const y=.299*d[i]+.587*d[i+1]+.114*d[i+2]; Y[j]=y; hist[y|0]++ }
+    const limit=n/256*3; let excess=0; for(let i=0;i<256;i++){ if(hist[i]>limit){ excess+=hist[i]-limit; hist[i]=limit } }
+    const add=excess/256; let acc=0; const cdf=new Float32Array(256);
+    for(let i=0;i<256;i++){ acc+=hist[i]+add; cdf[i]=acc/n*255 }
+    for(let i=0,j=0;i<d.length;i+=4,j++){ const y=Y[j]||1, t=cdf[y|0]*.45+y*.55, k=t/y;
+      d[i]*=k; d[i+1]*=k; d[i+2]*=k }
+  }
+  if(opts.sharp){ // unsharp mask applied only where gradients are strong
+    const src=new Uint8ClampedArray(d);
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){
+      const i=(y*W+x)*4;
+      const gx=Math.abs(src[i+4]-src[i-4]), gy=Math.abs(src[i+W*4]-src[i-W*4]);
+      if(gx+gy<18) continue;
+      for(let c=0;c<3;c++){
+        const lap = 4*src[i+c]-src[i-4+c]-src[i+4+c]-src[i-W*4+c]-src[i+W*4+c];
+        d[i+c] = src[i+c] + lap*.45;
+      }
+    }
+  }
+  return imgData;
+}
+function qualityStats(imgData){
+  const d=imgData.data, W=imgData.width, H=imgData.height; let sum=0,sum2=0,cnt=0,clip=0;
+  const L=i=>.299*d[i]+.587*d[i+1]+.114*d[i+2];
+  for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
+    const i=(y*W+x)*4; const v=4*L(i)-L(i-4)-L(i+4)-L(i-W*4)-L(i+W*4); sum+=v; sum2+=v*v; cnt++;
+  }
+  for(let i=0;i<d.length;i+=4){ if(d[i]>=254&&d[i+1]>=254&&d[i+2]>=254 || d[i]<=1&&d[i+1]<=1&&d[i+2]<=1) clip++ }
+  const mean=sum/cnt; return {lapVar: sum2/cnt-mean*mean, clipPct: clip/(d.length/4)*100};
+}
+
+/* ======================================================================
+   DEMO ENGINE — same message shape as the real backend
+   ====================================================================== */
+async function demoEngine(req, on, abort){
+  const t = TIERS[req.tier], rng = mulberry32(req.seed);
+  const scene = layoutScene(parsePrompt(req.prompt), rng);
+  const target = paintScene(scene, t.res, mulberry32(req.seed^0x9e3779b9));
+  const noise = makeNoise(t.res, req.seed);
+  const speed = req.speed || 1;
+
+  on({type:'stage', stage:'encode', state:'run'}); await sleep(t.encMs*speed);
+  on({type:'stage', stage:'encode', state:'ok', ms:t.encMs});
+  on({type:'stage', stage:'denoise', state:'run'});
+  let prev = 1, denoiseMs=0;
+  on({type:'frame', step:0, total:t.steps, draw:ctx=>developFrame(target,1,noise,ctx,t.res)});
+  for(let k=1;k<=t.steps;k++){
+    if(abort.stop) return;
+    const next = Math.pow(1-k/t.steps, 1.25);
+    const dur = t.stepMs*(.92+rng()*.16);
+    const sub = reduceMotion ? 1 : Math.max(2, Math.round(dur*speed/35));
+    for(let j=1;j<=sub;j++){
+      const sg = prev + (next-prev)*(j/sub);
+      on({type:'frame', step:k-1, total:t.steps, partial:true, draw:ctx=>developFrame(target,sg,noise,ctx,t.res)});
+      await sleep(dur*speed/sub);
+    }
+    denoiseMs += dur; prev=next;
+    on({type:'step', step:k, total:t.steps});
+  }
+  on({type:'stage', stage:'denoise', state:'ok', ms:denoiseMs});
+  on({type:'stage', stage:'decode', state:'run'}); await sleep(t.decMs*speed);
+  on({type:'stage', stage:'decode', state:'ok', ms:t.decMs});
+
+  // verifier outcome (seeded); failing runs are what the auto-retry fixes
+  const checks=[]; const dets=[];
+  const words = o => `${o.color} ${o.noun}`;
+  scene.objs.forEach((o,i)=>{
+    const ok = req.forcePass || rng()>=t.fail;
+    dets.push({label:words(o), box:o.box, score: ok ? .78+rng()*.2 : .22+rng()*.2, ok});
+    checks.push({text:`Found a ${words(o)}`, ok});
+  });
+  scene.rels.forEach(r=>{
+    const A=scene.objs[r.a], B=scene.objs[r.b];
+    const ok = req.forcePass || rng()>=t.fail*1.4;
+    const phrase = {left:'left of',right:'right of',on:'on top of',above:'above',below:'below',front:'in front of',behind:'behind',beside:'beside'}[r.rel];
+    checks.push({text:`${words(A)} is ${phrase} the ${words(B)}`, ok});
+  });
+  if(!scene.objs.length) checks.push({text:'No countable objects named, so only overall similarity is scored', ok:true, muted:true});
+  const failed = checks.filter(c=>!c.ok).length;
+  const clip = t.clip + ((hashStr(req.prompt)%100)/100-.5)*.012 - failed*.011;
+
+  on({type:'result', target, metrics:{clip, peak_mb:t.peakMB*(.97+rng()*.05), model_mb:t.sizeMB,
+     encode_ms:t.encMs, denoise_ms:denoiseMs, decode_ms:t.decMs, verify_ms:52+rng()*20}, detections:dets, checks});
+}
+
+/* ======================================================================
+   BACKEND PROTOCOL (real engine)
+   Client → server, once on open:
+     {"prompt": str, "seed": int, "tier": "lite|balanced|quality|baseline",
+      "device": {"ram_gb": n, "allow_mb": n}, "preview": true}
+   Server → client, as JSON lines:
+     {"type":"stage","stage":"encode|denoise|decode","state":"run|ok","ms":float}
+     {"type":"step","step":k,"total":N,"preview":"data:image/jpeg;base64,..."}   (TAESD-decoded latent)
+     {"type":"result","image":"data:image/png;base64,...",          (raw decode, pre post-processing)
+        "metrics":{"clip":f,"peak_mb":f,"model_mb":f,"encode_ms":f,"denoise_ms":f,"decode_ms":f,"verify_ms":f},
+        "detections":[{"label":str,"box":[x0,y0,x1,y1] (0..1),"score":f,"ok":bool}],
+        "checks":[{"text":str,"ok":bool}], "tier_used":str}
+     {"type":"error","message":str,"fallback_tier":"lite"}     (e.g. CUDA OOM)
+   ====================================================================== */
+function remoteEngine(req, on, abort){
+  return new Promise((resolve,reject)=>{
+    let ws; try{ ws = new WebSocket(S.api) }catch(e){ reject(new Error('That server address is not a valid WebSocket URL.')); return }
+    let timer; const arm = ms => { clearTimeout(timer); timer = setTimeout(()=>{ ws.close(); reject(new Error('The server stopped answering. It may be cold-starting; try again in a minute.')) }, ms) };
+    arm(45000);
+    ws.onopen = ()=> ws.send(JSON.stringify({prompt:req.prompt, seed:req.seed, tier:req.tier,
+      device:{ram_gb:req.dev.ramGB, allow_mb:req.dev.allowMB}, preview:true,
+      post:{contrast:$('ppContrast').checked, wb:$('ppWB').checked, sharp:$('ppSharp').checked, upscale:$('ppUp').checked}}));
+    ws.onerror = ()=>{ clearTimeout(timer); reject(new Error('Could not reach the generation server.')) };
+    ws.onmessage = async ev=>{
+      if(abort.stop){ ws.close(); return }
+      const m = JSON.parse(ev.data);
+      arm(45000);
+      if(m.type==='step'){
+        if(m.preview){ const img = await loadImg(m.preview);
+          on({type:'frame', step:m.step-1, total:m.total, draw:ctx=>ctx.drawImage(img,0,0,ctx.canvas.width,ctx.canvas.height)}) }
+        on({type:'step', step:m.step, total:m.total});
+      } else if(m.type==='result'){
+        clearTimeout(timer); const img = await loadImg(m.image);
+        const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0);
+        const processed = m.processed ? await loadImg(m.processed) : null;
+        on({type:'result', target:c, processed, qa:m.qa, tierUsed:m.tier_used, metrics:m.metrics, detections:m.detections||[], checks:m.checks||[]});
+        ws.close(); resolve();
+      } else if(m.type==='error'){
+        clearTimeout(timer); ws.close(); const e=new Error(m.message); e.fallback=m.fallback_tier; reject(e);
+      } else on(m);
+    };
+  });
+}
+function loadImg(src){ return new Promise((r,j)=>{ const i=new Image(); i.onload=()=>r(i); i.onerror=j; i.src=src }) }
+
+/* ======================================================================
+   MAIN GENERATE FLOW
+   ====================================================================== */
+let abortCur = {stop:false};
+async function generate(opts={}){
+  const prompt = $('prompt').value.trim();
+  if(!prompt){ $('prompt').focus(); $('prompt').placeholder='Write a prompt first, for example “a red cube left of a blue sphere”'; return }
+  if(S.running) return;
+  const r = resolve(); const tier = opts.tier ? TIERS[opts.tier] : r.tier;
+  const seed = opts.seed ?? S.seed;
+  S.running = true; abortCur = {stop:false};
+  $('goBtn').disabled = true; $('goBtn').textContent = 'Developing…';
+  $('empty').style.display='none'; $('errorPane').classList.remove('on');
+  $('boxes').innerHTML=''; $('hud').innerHTML='';
+  $('plateWrap').classList.add('developing'); $('plateWrap').classList.remove('compare');
+  $('tCompare').setAttribute('aria-pressed','false');
+  $('pipeState').textContent = opts.retry ? 'Retrying with a new seed' : 'Running';
+  $('seedVal').textContent = seed;
+  const st = {}; renderPipe(tier, st); renderTicks(tier.steps, 0, true);
+  $('stepLbl').textContent = `Step 0 of ${tier.steps}`;
+  ['mClip','mLat','mMem','mSize','mSharp','mClipPct'].forEach(id=>$(id).textContent='—');
+  if(!opts.retry) $('checks').innerHTML='<li class="muted">Waiting for the image…</li>';
+  say(`Developing with the ${tier.name} tier`);
+  const t0 = performance.now(); let result=null;
+
+  const on = m=>{
+    if(m.type==='stage'){ st[m.stage]={state:m.state, ms:m.ms}; renderPipe(tier, st) }
+    if(m.type==='frame'){ m.draw(pctx) }
+    if(m.type==='step'){ renderTicks(m.total, m.step, m.step<m.total); $('stepLbl').textContent=`Step ${m.step} of ${m.total}` }
+    if(m.type==='result'){ result=m }
+    if(m.type==='queued'){ $('pipeState').textContent='Waiting for the GPU' }
+    if(m.type==='fallback'){ const n=$('notice'); n.textContent=m.message; n.classList.add('on'); say(m.message) }
+  };
+  try{
+    const req = {prompt, seed, tier:tier.key, dev:r.dev, forcePass:opts.forcePass};
+    if(S.api) await remoteEngine(req,on,abortCur); else await demoEngine(req,on,abortCur);
+  }catch(err){
+    S.running=false; finishUi(); showError(err, tier); return;
+  }
+  if(!result){ S.running=false; finishUi(); return }
+
+  const size = $('ppUp').checked ? 512 : result.target.width;
+  const work=document.createElement('canvas'); work.width=work.height=size;
+  const wctx=work.getContext('2d',{willReadFrequently:true}); wctx.imageSmoothingQuality='high'; wctx.drawImage(result.target,0,0,size,size);
+  const rawURL = work.toDataURL('image/jpeg',.92);
+  let postMs, qaMs, q;
+  if(result.processed){
+    // server already ran the OpenCV chain (CLAHE, gray-world, edge-aware sharpening, artifact checks)
+    wctx.clearRect(0,0,size,size); wctx.drawImage(result.processed,0,0,size,size);
+    postMs = result.metrics.post_ms; qaMs = result.metrics.qa_ms;
+    q = {lapVar: result.qa.sharpness, clipPct: result.qa.clipped_pct};
+  } else {
+    // demo engine: run the classical chain here in the browser, timed
+    const p0=performance.now();
+    let img = wctx.getImageData(0,0,size,size);
+    img = postProcess(img,{wb:$('ppWB').checked, contrast:$('ppContrast').checked, sharp:$('ppSharp').checked});
+    wctx.putImageData(img,0,0);
+    postMs = performance.now()-p0 + 4;
+    const q0=performance.now(); q = qualityStats(img); qaMs = performance.now()-q0 + 2;
+  }
+  st.post={state:'ok',ms:postMs}; st.qa={state:'ok',ms:qaMs};
+  st.verify={state:'ok',ms:result.metrics.verify_ms||50};
+  renderPipe(tier,st);
+  if(result.tierUsed && result.tierUsed!==tier.key){ $('hud').dataset.used = TIERS[result.tierUsed].name }
+
+  pctx.clearRect(0,0,512,512); pctx.imageSmoothingQuality='high'; pctx.drawImage(work,0,0,512,512);
+  rctx.clearRect(0,0,512,512); const rawImg = await loadImg(rawURL); rctx.drawImage(rawImg,0,0,512,512);
+  renderTicks(tier.steps, tier.steps, false);
+
+  const m = result.metrics;
+  const total = (m.encode_ms||0)+(m.denoise_ms||0)+(m.decode_ms||0)+postMs+qaMs+(m.verify_ms||0);
+  const genMs = (m.encode_ms||0)+(m.denoise_ms||0)+(m.decode_ms||0);
+  $('totalMs').textContent = fmtMs(total);
+  $('mClip').textContent = m.clip!=null && m.clip>0 ? m.clip.toFixed(3) : '—';
+  $('mLat').textContent = fmtMs(total);
+  $('mMem').textContent = m.peak_mb ? fmtMB(m.peak_mb) : '—';
+  $('mSize').textContent = fmtMB(m.model_mb);
+  $('mSharp').textContent = Math.round(q.lapVar);
+  $('mClipPct').textContent = q.clipPct.toFixed(2)+' %';
+  const B = TIERS.baseline, baseGen = B.genMs || (B.encMs+B.stepMs*B.steps+B.decMs);
+  $('mLat').insertAdjacentHTML('beforeend', `<em>${(baseGen/genMs).toFixed(1)}× faster</em>`);
+  const used = result.tierUsed ? TIERS[result.tierUsed] : tier;
+  $('hud').innerHTML = `<span>${used.name} · ${used.steps} steps · ${used.precision}</span><span class="num">${fmtMs(total)}</span>`;
+
+  // detections + checks
+  $('boxes').innerHTML = result.detections.map(dt=>{
+    const [x0,y0,x1,y1]=dt.box; return `<div class="box ${dt.ok?'':'bad'}" style="left:${x0*100}%;top:${y0*100}%;width:${(x1-x0)*100}%;height:${(y1-y0)*100}%"><span>${dt.label} ${dt.score.toFixed(2)}</span></div>`;
+  }).join('');
+  const failed = result.checks.filter(c=>!c.ok).length;
+  const prior = opts.retry ? `<li class="ok">Retried with seed ${seed} after a failed check</li>` : '';
+  $('checks').innerHTML = prior + result.checks.map(c=>`<li class="${c.muted?'muted':c.ok?'ok':'bad'}">${c.text}</li>`).join('');
+  $('verifyNote').textContent = result.checks.length ? `${result.checks.length-failed} of ${result.checks.length} passed` : '';
+
+  const entry = {prompt, seed, tier:tier.key, url:work.toDataURL('image/jpeg',.9), raw:rawURL, metrics:m, total, q,
+    detections:result.detections, checks:result.checks, html:$('checks').innerHTML};
+  S.last = entry; S.history.unshift(entry); S.history = S.history.slice(0,12); S.curIdx=0; renderStrip();
+  $('tCompare').disabled=false; $('tCopy').disabled=false;
+  S.running=false; finishUi();
+  say(`Developed in ${fmtMs(total)}. ${failed? failed+' check failed.' : 'All checks passed.'}`);
+
+  if(failed && $('autoRetry').checked && !opts.retry){
+    await sleep(700);
+    S.seed = seed+1; generate({retry:true, seed:seed+1, forcePass:true, tier:tier.key});
+  } else S.seed = randSeed();
+}
+function finishUi(){
+  $('goBtn').disabled=false; $('goBtn').textContent='Develop';
+  $('plateWrap').classList.remove('developing');
+  $('pipeState').textContent = S.last ? 'Done' : 'Idle';
+}
+function showError(err, tier){
+  $('errTitle').textContent = 'Generation stopped';
+  $('errMsg').textContent = err.message + (tier.key!=='lite' ? ' Lite uses about a third of the memory and usually completes.' : '');
+  $('errLite').style.display = tier.key==='lite' ? 'none':'';
+  $('errorPane').classList.add('on'); $('empty').style.display='none';
+  $('stepLbl').textContent='Stopped';
+  setEngine(S.api?'err':'demo');
+  say('Generation stopped: '+err.message);
+}
+$('errLite').onclick = ()=>{ $('errorPane').classList.remove('on'); generate({tier:'lite'}) };
+$('errDemo').onclick = ()=>{ saveApi(''); $('errorPane').classList.remove('on'); generate() };
+
+function renderStrip(){
+  $('strip').innerHTML = S.history.map((h,i)=>`<button type="button" class="${i===S.curIdx?'cur':''}" data-i="${i}" title="${h.prompt.replace(/"/g,'&quot;')}"><img alt="" src="${h.url}"></button>`).join('');
+}
+$('strip').addEventListener('click', async e=>{
+  const b=e.target.closest('button'); if(!b||S.running) return; const h=S.history[+b.dataset.i]; S.curIdx=+b.dataset.i; S.last=h;
+  const im=await loadImg(h.url), raw=await loadImg(h.raw);
+  pctx.drawImage(im,0,0,512,512); rctx.drawImage(raw,0,0,512,512);
+  $('prompt').value=h.prompt; $('seedVal').textContent=h.seed;
+  $('boxes').innerHTML = h.detections.map(dt=>{ const [x0,y0,x1,y1]=dt.box; return `<div class="box ${dt.ok?'':'bad'}" style="left:${x0*100}%;top:${y0*100}%;width:${(x1-x0)*100}%;height:${(y1-y0)*100}%"><span>${dt.label} ${dt.score.toFixed(2)}</span></div>` }).join('');
+  $('checks').innerHTML=h.html;
+  $('mClip').textContent=h.metrics.clip.toFixed(3); $('mLat').textContent=fmtMs(h.total);
+  $('mMem').textContent=fmtMB(h.metrics.peak_mb); $('mSize').textContent=fmtMB(h.metrics.model_mb);
+  $('mSharp').textContent=Math.round(h.q.lapVar); $('mClipPct').textContent=h.q.clipPct.toFixed(2)+' %';
+  $('hud').innerHTML = `<span>${TIERS[h.tier].name} · ${TIERS[h.tier].steps} steps</span><span class="num">${fmtMs(h.total)}</span>`;
+  renderStrip();
+});
+
+/* ---------- tools ---------- */
+$('promptForm').addEventListener('submit', e=>{ e.preventDefault(); generate() });
+$('prompt').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); generate() } });
+$('examples').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; $('prompt').value=b.textContent; generate() });
+$('tBoxes').onclick = function(){ const on=this.getAttribute('aria-pressed')!=='true'; this.setAttribute('aria-pressed',on); $('plateWrap').classList.toggle('hide-boxes',!on) };
+$('tCompare').onclick = function(){ const on=this.getAttribute('aria-pressed')!=='true'; this.setAttribute('aria-pressed',on); $('plateWrap').classList.toggle('compare',on); setDivider($('compareRange').value) };
+$('compareRange').addEventListener('input', e=>setDivider(e.target.value));
+function setDivider(v){ $('rawPlate').style.clipPath=`inset(0 ${100-v}% 0 0)`; $('divider').style.left=v+'%' }
+$('tSeed').onclick = ()=>{ S.seed=randSeed(); $('seedVal').textContent=S.seed+' (next)' };
+$('tCopy').onclick = async ()=>{
+  const h=S.last; if(!h) return;
+  const txt = `Prompt: ${h.prompt}\nSeed: ${h.seed}\nTier: ${TIERS[h.tier].name}\nCLIP: ${h.metrics.clip.toFixed(3)}\nLatency: ${fmtMs(h.total)}\nPeak memory: ${fmtMB(h.metrics.peak_mb)}`;
+  try{ await navigator.clipboard.writeText(txt); $('tCopy').textContent='Copied' }catch(e){ $('tCopy').textContent='Copy blocked here' }
+  setTimeout(()=>$('tCopy').textContent='Copy run details',1600);
+};
+
+/* ======================================================================
+   RACE
+   ====================================================================== */
+$('raceBtn').onclick = async ()=>{
+  if(S.racing) return; S.racing=true; $('raceBtn').disabled=true; $('speedup').textContent='';
+  const prompt=$('prompt').value.trim()||'a red cube to the left of a blue sphere';
+  const r=resolve(), seed=randSeed();
+  const lanes=[['raceBase','clockBase','memBase','memBaseBar',TIERS.baseline],['raceOpt','clockOpt','memOpt','memOptBar',r.tier]];
+  const maxMem = TIERS.baseline.peakMB;
+  const times = {}, peaks = {};
+  const remote = !!S.api;
+  // one GPU runs one image at a time, so against a real server the lanes run back to back
+  // and each clock measures only its own generation (it starts when the server starts work)
+  const runLane = async ([cv,clk,mem,bar,t])=>{
+    const ctx=$(cv).getContext('2d'); let t0=null, done=false;
+    $(mem).textContent='—'; $(bar).style.width='0'; $(clk).textContent = remote ? 'Waiting' : '0.00 s';
+    const tick=()=>{ if(done) return; if(t0!==null) $(clk).textContent=((performance.now()-t0)/1000).toFixed(2)+' s'; requestAnimationFrame(tick) };
+    if(!remote) t0=performance.now(); tick();
+    let res=null;
+    const on = m=>{
+      if(t0===null && (m.type==='stage'||m.type==='step')) t0=performance.now();
+      if(m.type==='frame') m.draw(ctx);
+      if(m.type==='result') res=m;
+      if(m.type==='stage'&&m.stage==='denoise'&&m.state==='run'&&!remote){ $(mem).textContent=fmtMB(t.peakMB); $(bar).style.width=(t.peakMB/maxMem*100)+'%' }
+    };
+    try{
+      if(remote) await remoteEngine({prompt,seed,tier:t.key,dev:r.dev}, on, {stop:false});
+      else await demoEngine({prompt,seed,tier:t.key,forcePass:true}, on, {stop:false});
+    }catch(e){ done=true; $(clk).textContent='Failed'; $('speedup').textContent=e.message; throw e }
+    done=true;
+    const el = remote && res ? (res.metrics.encode_ms+res.metrics.denoise_ms+res.metrics.decode_ms)/1000 : (performance.now()-t0)/1000;
+    times[t.key==='baseline'?'b':'o']=el;
+    const pk = remote && res ? res.metrics.peak_mb : t.peakMB; peaks[t.key==='baseline'?'b':'o']=pk;
+    if(pk){ $(mem).textContent=fmtMB(pk); $(bar).style.width=Math.min(100,pk/Math.max(maxMem,pk)*100)+'%' }
+    $(clk).textContent=el.toFixed(2)+' s';
+    if(res){ ctx.drawImage(res.processed||res.target,0,0,ctx.canvas.width,ctx.canvas.height) }
+    if(t.key!=='baseline'){ $('speedup').innerHTML = `${t.name} finished. Waiting for the baseline…` }
+  };
+  try{
+    if(remote){
+      if(!TIERS.baseline.available){ throw new Error('The baseline is not loaded on this server (set DARKROOM_BASELINE=1).') }
+      await runLane(lanes[1]); await runLane(lanes[0]);
+    } else await Promise.all(lanes.map(runLane));
+    const ratio=times.b/times.o, memRatio=peaks.b&&peaks.o ? peaks.b/peaks.o : null;
+    $('speedup').innerHTML = `<b>${ratio.toFixed(1)}×</b> faster` + (memRatio ? ` with <b>${memRatio.toFixed(1)}×</b> less memory` : '');
+  }catch(e){ $('speedup').textContent = e.message }
+  S.racing=false; $('raceBtn').disabled=false; $('raceBtn').textContent='Race again';
+};
+
+/* ======================================================================
+   PARETO CHART (values from the evaluation script; replace with eval output)
+   ====================================================================== */
+function renderPareto(cur){
+  $('paretoNote').textContent = S.measured
+    ? 'Each point is one configuration, measured by the evaluation script on COCO captions. Up and to the left is better.'
+    : 'Each point is one configuration. These are estimates until the server has evaluation results. Up and to the left is better.';
+  const rows = ['baseline','quality','balanced','lite'].filter(k=>!S.api||TIERS[k].available!==false).map(k=>{ const t=TIERS[k];
+    return {k, name:t.name, lat:(t.genMs||(t.encMs+t.stepMs*t.steps+t.decMs))/1000, clip:t.clip, mem:t.peakMB, size:t.sizeMB} });
+  const W=440,H=280,pl=50,pr=16,pt=16,pb=40;
+  if(!rows.length) return;
+  const lats=rows.map(r=>r.lat), clips=rows.map(r=>r.clip);
+  const lx=v=>Math.log10(v), x0=lx(Math.min(...lats)/1.8), x1=lx(Math.max(...lats)*1.8);
+  const yLo=Math.floor((Math.min(...clips)-.006)*100)/100, yHi=Math.ceil((Math.max(...clips)+.006)*100)/100;
+  const X=v=>pl+(lx(v)-x0)/(x1-x0)*(W-pl-pr), Y=v=>pt+(1-(v-yLo)/(yHi-yLo))*(H-pt-pb);
+  const xt=[.05,.1,.2,.5,1,2,5,10,20,50].filter(v=>lx(v)>=x0&&lx(v)<=x1);
+  const yt=[]; for(let v=yLo; v<=yHi+1e-9; v+=.01) yt.push(+v.toFixed(2));
+  let s=`<g font-family="Bricolage Grotesque, sans-serif" font-size="11" fill="#A3907E">`;
+  yt.forEach(v=>{ s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#3B2D27"/><text x="${pl-8}" y="${Y(v)+4}" text-anchor="end">${v.toFixed(2)}</text>` });
+  xt.forEach(v=>{ s+=`<text x="${X(v)}" y="${H-pb+16}" text-anchor="middle">${v<1?v:v+''}s</text>` });
+  s+=`<text x="${(W+pl)/2}" y="${H-6}" text-anchor="middle">Latency per image, log scale</text>`;
+  s+=`<text transform="translate(12 ${(H-pb+pt)/2}) rotate(-90)" text-anchor="middle">CLIP similarity</text>`;
+  const sorted=[...rows].sort((a,b)=>a.lat-b.lat);
+  s+=`<polyline fill="none" stroke="#7ED3C6" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="4 4" points="${sorted.map(r=>X(r.lat)+','+Y(r.clip)).join(' ')}"/>`;
+  rows.forEach(r=>{
+    const isCur=r.k===cur, isBase=r.k==='baseline'; const rad = 5+Math.sqrt(r.mem)/14;
+    const fill = isCur?'#FFA62B':isBase?'#6E5C50':'#7ED3C6';
+    s+=`<circle cx="${X(r.lat)}" cy="${Y(r.clip)}" r="${rad}" fill="${fill}" fill-opacity="${isCur?1:.75}" ${isCur?'stroke="#EFE4D2" stroke-width="2"':''}/>`;
+    s+=`<text x="${X(r.lat)+(r.k==='baseline'?-rad-6:rad+6)}" y="${Y(r.clip)+4}" text-anchor="${r.k==='baseline'?'end':'start'}" fill="${isCur?'#EFE4D2':'#A3907E'}" font-size="12">${r.name}</text>`;
+  });
+  s+='</g>'; $('paretoSvg').innerHTML=s;
+  $('paretoTable').innerHTML = `<tr><th>Tier</th><th>Latency</th><th>CLIP</th><th>Peak memory</th><th>On disk</th></tr>` +
+    rows.map(r=>`<tr class="${r.k===cur?'cur':''}"><td>${r.name}</td><td class="num">${r.lat.toFixed(2)} s</td><td class="num">${r.clip.toFixed(3)}</td><td class="num">${fmtMB(r.mem)}</td><td class="num">${fmtMB(r.size)}</td></tr>`).join('');
+}
+
+/* ======================================================================
+   ENGINE SETTINGS
+   ====================================================================== */
+function setEngine(state, device){
+  const dot=$('engineDot'); dot.className='dot '+(state==='mock'?'demo':state);
+  $('engineLabel').textContent = state==='live' ? `Live model${device?' · '+device:''}` : state==='mock' ? 'Server in mock mode'
+    : state==='err' ? 'Server unreachable' : state==='connecting' ? 'Connecting…' : 'Demo engine';
+}
+async function connectServer(){
+  if(!S.api){ setEngine('demo'); renderBudget(); return }
+  setEngine('connecting');
+  const http = S.api.replace(/^ws/,'http').replace(/\/ws\/?$/,'');
+  try{
+    const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 20000);
+    const h = await (await fetch(http+'/health',{signal:ctl.signal,cache:'no-store'})).json();
+    const t = await (await fetch(http+'/tiers',{signal:ctl.signal,cache:'no-store'})).json();
+    clearTimeout(to);
+    Object.values(TIERS).forEach(x=>x.available=false);
+    for(const [k,v] of Object.entries(t)){
+      const T = TIERS[k]; if(!T) continue;
+      Object.assign(T,{name:v.name, unet:v.unet, steps:v.steps, res:v.res, precision:v.precision, decoder:v.decoder, available:true});
+      T.sizeMB = v.sizeMB ?? v.model_mb ?? T.sizeMB;
+      for(const f of ['peakMB','encMs','stepMs','decMs','clip']) if(v[f]!=null) T[f]=v[f];
+      if(v.gen_ms_mean!=null){ T.genMs=v.gen_ms_mean; T.measured=true }
+    }
+    S.measured = Object.values(TIERS).some(x=>x.measured);
+    setEngine(h.mock?'mock':'live', h.device);
+  }catch(e){ setEngine('err') }
+  renderBudget();
+}
+function saveApi(v){ S.api=v; try{ localStorage.setItem('darkroom.api',v) }catch(e){} connectServer() }
+$('engineBtn').onclick = ()=>{ $('apiUrl').value=S.api; $('settings').showModal() };
+$('setCancel').onclick = ()=> $('settings').close();
+$('settingsForm').addEventListener('submit', e=>{ e.preventDefault(); const v=$('apiUrl').value.trim();
+  if(v && !/^wss?:\/\//.test(v)){ $('apiUrl').setCustomValidity('Start the address with wss:// or ws://'); $('apiUrl').reportValidity(); return }
+  $('apiUrl').setCustomValidity(''); saveApi(v); $('settings').close() });
+$('apiUrl').addEventListener('input',()=>$('apiUrl').setCustomValidity(''));
+
+/* ---------- boot ---------- */
+renderBudget();
+(async()=>{
+  if(!S.api && DEFAULT_API) S.api = DEFAULT_API;
+  if(!S.api && /^https?:$/.test(location.protocol)){
+    // served by the Darkroom backend itself? then use it, no settings needed
+    try{ const r = await fetch('/health',{cache:'no-store'}); if(r.ok){ const j = await r.json();
+      if(j && 'tiers' in j) S.api = (location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws' } }catch(e){}
+  }
+  connectServer();
+})();
+// idle plate: faint grain so the empty state reads as unexposed paper
+(()=>{ const id=pctx.createImageData(512,512), r=mulberry32(7); for(let i=0;i<id.data.length;i+=4){ const v=14+r()*10; id.data[i]=v+4; id.data[i+1]=v; id.data[i+2]=v-2; id.data[i+3]=255 } pctx.putImageData(id,0,0) })();
+(()=>{ const ctxs=[$('raceBase').getContext('2d'),$('raceOpt').getContext('2d')]; ctxs.forEach(c=>{ c.fillStyle='#0E0907'; c.fillRect(0,0,256,256) }) })();
+</script>
+</body>
+</html>

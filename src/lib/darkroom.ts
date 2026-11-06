@@ -20,6 +20,8 @@ export type TierSpec = {
   };
 };
 
+// Latency, CLIP and size: measured on a Tesla T4 (eval/results/eval_P3_T03.md).
+// peakMB: estimates until eval/measure_memory.py has run; the server's /tiers replaces them.
 export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
   baseline: {
     name: "Baseline",
@@ -28,15 +30,15 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     res: 512,
     precision: "FP32",
     decoder: "Full VAE",
-    model_mb: 4260,
+    model_mb: 4265,
     measured: {
-      clip: 0.318,
-      gen_ms_mean: 7700,
+      clip: 0.308,
+      gen_ms_mean: 31815,
       peakMB: 6200,
-      sizeMB: 4260,
-      encMs: 110,
-      stepMs: 150,
-      decMs: 90,
+      sizeMB: 4265,
+      encMs: 19,
+      stepMs: 617,
+      decMs: 958,
     },
   },
   quality: {
@@ -46,15 +48,15 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     res: 512,
     precision: "FP16",
     decoder: "Full VAE",
-    model_mb: 2130,
+    model_mb: 2132,
     measured: {
-      clip: 0.312,
-      gen_ms_mean: 510,
+      clip: 0.299,
+      gen_ms_mean: 951,
       peakMB: 2900,
-      sizeMB: 2130,
-      encMs: 32,
-      stepMs: 48,
-      decMs: 56,
+      sizeMB: 2132,
+      encMs: 9,
+      stepMs: 93,
+      decMs: 195,
     },
   },
   balanced: {
@@ -66,13 +68,13 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     decoder: "TAESD",
     model_mb: 1970,
     measured: {
-      clip: 0.304,
-      gen_ms_mean: 240,
+      clip: 0.301,
+      gen_ms_mean: 402,
       peakMB: 2400,
       sizeMB: 1970,
-      encMs: 20,
-      stepMs: 28,
-      decMs: 40,
+      encMs: 10,
+      stepMs: 93,
+      decMs: 21,
     },
   },
   lite: {
@@ -82,15 +84,15 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     res: 384,
     precision: "INT8",
     decoder: "TAESD",
-    model_mb: 1110,
+    model_mb: 1112,
     measured: {
-      clip: 0.289,
-      gen_ms_mean: 230,
+      clip: 0.293,
+      gen_ms_mean: 348,
       peakMB: 1500,
-      sizeMB: 1110,
-      encMs: 18,
-      stepMs: 30,
-      decMs: 38,
+      sizeMB: 1112,
+      encMs: 10,
+      stepMs: 109,
+      decMs: 13,
     },
   },
 };

@@ -636,8 +636,8 @@ function Darkroom() {
             processed: scene.processed,
             metrics,
             qa: {
-              sharpness: 0.82,
-              clipped_pct: 0.3,
+              sharpness: 3538,
+              clipped_pct: 0.05,
               colorfulness: 0.71,
               checkerboard: false,
               fixes: [],
@@ -949,1000 +949,1065 @@ function Darkroom() {
           : "No"
         : "—";
 
+  const [view, setView] = useState<"studio" | "bench" | "how">("studio");
+  const busy = jobState === "loading" || jobState === "queued";
+  const isLive = connection === "live";
+  const shownImage = result ? result.processed || result.raw : preview;
+  const tierOrder: TierKey[] = ["baseline", "quality", "balanced", "lite"];
+  const base = tiers.baseline.measured;
+  const balanced = tiers.balanced.measured;
+  const lite = tiers.lite;
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-darkroom-canvas text-foreground selection:bg-darkroom-violet/30">
-      <LatentField active={jobState === "loading" || jobState === "queued"} />
+      <LatentField active={busy} />
       <div
-        className="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_35%,transparent_15%,var(--darkroom-canvas)_100%)] opacity-85"
+        className="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_30%,transparent_10%,var(--darkroom-canvas)_95%)] opacity-90"
         aria-hidden
       />
-      <div className="relative z-10 mx-auto max-w-[1680px] px-4 pb-8 sm:px-6 lg:px-8">
-        <header className="flex min-h-[72px] items-center justify-between border-b border-darkroom-panel-edge/80 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl border border-darkroom-violet/30 bg-darkroom-violet/10 text-darkroom-violet">
-              <Moon className="h-[18px] w-[18px]" />
+
+      <div className="relative z-10 mx-auto max-w-[1400px] px-4 pb-16 sm:px-6 lg:px-10">
+        {/* ------------------------------------------------------------ header */}
+        <header className="flex flex-wrap items-center justify-between gap-4 py-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl darkroom-gradient shadow-[0_8px_30px_-8px_var(--darkroom-violet)]">
+              <Moon className="h-5 w-5 text-white" />
             </div>
             <div>
-              <div className="font-display text-[19px] font-semibold leading-none">
+              <div className="font-display text-2xl font-semibold leading-none tracking-tight">
                 Darkroom<span className="text-darkroom-coral">.</span>
               </div>
-              <div className="mt-1 hidden text-[9px] uppercase tracking-[.2em] text-muted-foreground sm:block">
-                On-device image generation
+              <div className="mt-1 text-sm text-muted-foreground">
+                Text-to-image, sized for your phone
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+
+          <nav
+            className="order-3 flex w-full gap-1 rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel p-1 backdrop-blur-xl sm:order-none sm:w-auto"
+            aria-label="Views"
+          >
+            {(
+              [
+                ["studio", "Studio", Sparkles],
+                ["bench", "Benchmarks", Gauge],
+                ["how", "How it works", Layers3],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setView(key)}
+                aria-current={view === key ? "page" : undefined}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition sm:flex-none ${
+                  view === key ? "darkroom-active" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="whitespace-nowrap sm:hidden">
+                  {label === "How it works" ? "How" : label === "Benchmarks" ? "Bench" : label}
+                </span>
+                <span className="hidden whitespace-nowrap sm:inline">{label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <button
+            type="button"
+            onClick={() => {
+              setUrlDraft(connectionUrl);
+              setDialogOpen(true);
+            }}
+            className="flex items-center gap-2.5 rounded-full border border-darkroom-panel-edge bg-darkroom-panel px-4 py-2.5 text-sm backdrop-blur-xl hover:border-darkroom-violet/50"
+          >
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                isLive
+                  ? "bg-darkroom-success shadow-[0_0_10px_var(--darkroom-success)]"
+                  : connection === "unreachable"
+                    ? "bg-darkroom-coral"
+                    : connection === "connecting"
+                      ? "darkroom-gradient darkroom-pulse"
+                      : "bg-darkroom-amber"
+              }`}
+            />
+            <span className="font-medium">
+              {isLive
+                ? `Live model${healthDevice ? ` · ${healthDevice}` : ""}`
+                : connection === "unreachable"
+                  ? "Server unreachable"
+                  : connection === "connecting"
+                    ? "Connecting…"
+                    : "Demo mode"}
+            </span>
+            <Settings2 className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </header>
+
+        {!isLive && (
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-darkroom-amber/25 bg-darkroom-amber/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Wifi className="mt-0.5 h-5 w-5 shrink-0 text-darkroom-amber" />
+              <p className="text-sm leading-relaxed text-foreground/90">
+                <span className="font-semibold text-darkroom-amber">
+                  {connection === "unreachable"
+                    ? "The model server isn't reachable. "
+                    : "Demo mode. "}
+                </span>
+                Images here are procedural previews, not model output. Timings and scores come from
+                our T4 evaluation. Connect the model server to generate for real.
+              </p>
+            </div>
             <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2 rounded-full border-darkroom-panel-edge bg-darkroom-panel px-3 text-[10px] font-medium sm:text-xs"
+              className="darkroom-active h-10 shrink-0 rounded-xl px-5 text-sm"
               onClick={() => {
                 setUrlDraft(connectionUrl);
                 setDialogOpen(true);
               }}
             >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${connection === "live" ? "bg-darkroom-success" : connection === "unreachable" ? "bg-darkroom-coral" : connection === "connecting" ? "darkroom-gradient darkroom-pulse" : "bg-darkroom-amber"}`}
-              />
-              <span className="max-w-[156px] truncate">
-                <span className="sm:hidden">
-                  {connection === "live"
-                    ? "Live"
-                    : connection === "unreachable"
-                      ? "Offline"
-                      : connection === "connecting"
-                        ? "Connecting"
-                        : "Demo"}
-                </span>
-                <span className="hidden sm:inline">{modeLabel}</span>
-              </span>
-              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <Link2 className="h-4 w-4" />
+              Connect server
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              aria-label="Toggle compute and pipeline panels"
-              onClick={() => setShowRails(!showRails)}
-            >
-              <Layers3 className="h-4 w-4" />
-            </Button>
-            <div className="hidden items-center gap-1.5 text-[10px] text-muted-foreground md:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-darkroom-teal" />
-              LOCAL INFERENCE LAB
-            </div>
           </div>
-        </header>
+        )}
 
-        <main className="grid grid-cols-1 gap-4 pb-10 pt-4 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(250px,300px)] lg:gap-5 lg:pb-8 lg:pt-6">
-          <div
-            className={`darkroom-sheet-rail flex gap-3 overflow-x-auto lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:flex-col lg:overflow-y-auto ${showRails ? "" : "max-lg:hidden"}`}
+        <AnimatePresence mode="wait">
+          <motion.main
+            key={view}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
           >
-            <section
-              className="darkroom-sheet darkroom-glass darkroom-surface min-w-[min(82vw,300px)] p-4 lg:min-w-0 lg:p-5"
-              aria-label="Compute budget"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-darkroom-violet" />
-                  <h2 className="font-display text-sm font-semibold">Compute budget</h2>
-                </div>
-                <span className="text-[9px] uppercase tracking-[.14em] text-muted-foreground">
-                  LOCAL
-                </span>
-              </div>
-              <div className="mt-5 text-[10px] uppercase tracking-[.16em] text-muted-foreground">
-                Device profile
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-darkroom-panel-edge bg-darkroom-canvas/50 p-1">
-                {(["auto", "budget", "mid", "flagship"] as DeviceKey[]).map((key) => (
-                  <Button
-                    key={key}
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 min-w-0 truncate rounded-lg px-2 text-[10px] ${device === key ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
-                    onClick={() => setDevice(key)}
-                  >
-                    {DEVICE_LABEL[key]}
-                  </Button>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Memory ceiling</span>
-                <span className="font-medium tabular-nums">{allowance.toLocaleString()} MB</span>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className={`h-full rounded-full transition-all ${tierDecision.downgraded ? "bg-darkroom-warning" : "darkroom-gradient"}`}
-                  style={{
-                    width: `${Math.min(100, (activeSpec.measured.peakMB / allowance) * 100)}%`,
-                  }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
-                <span>Peak {activeSpec.measured.peakMB.toLocaleString()} MB</span>
-                <span>of {allowance.toLocaleString()}</span>
-              </div>
-              <div className="mt-5 flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[.16em] text-muted-foreground">
-                  Compute tier
-                </span>
-                <span className="text-[9px] text-muted-foreground">
-                  {requestedTier === "adaptive" ? "AUTO-SELECT" : "MANUAL"}
-                </span>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                {(["adaptive", "quality", "balanced", "lite"] as const).map((key) => (
-                  <Button
-                    key={key}
-                    variant="ghost"
-                    size="sm"
-                    aria-pressed={requestedTier === key}
-                    className={`h-9 justify-start rounded-lg px-2.5 text-[11px] ${requestedTier === key ? "darkroom-active" : "border border-darkroom-panel-edge bg-darkroom-canvas/40 text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setRequestedTier(key)}
-                  >
-                    <span
-                      className={`mr-1.5 h-1.5 w-1.5 rounded-full ${requestedTier === key ? "bg-primary-foreground" : "bg-muted-foreground/40"}`}
-                    />
-                    {key[0]?.toUpperCase()}
-                    {key.slice(1)}
-                  </Button>
-                ))}
-              </div>
-              {tierDecision.downgraded && (
-                <div className="mt-3 flex gap-2 rounded-lg border border-darkroom-warning/25 bg-darkroom-warning/10 p-2.5 text-[10px] leading-relaxed text-darkroom-warning">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    {TIER_LABEL[tierDecision.requested ?? activeTier]} exceeds this device’s memory
-                    allowance. Using {TIER_LABEL[activeTier]} instead.
-                  </span>
-                </div>
-              )}
-              <div className="mt-4 border-t border-darkroom-panel-edge pt-3">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-muted-foreground">{TIER_LABEL[activeTier]} spec</span>
-                  <span className="tabular-nums text-foreground">
-                    {activeSpec.steps} steps · {activeSpec.res}px
-                  </span>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-y-1.5 text-[9px]">
-                  <span className="text-muted-foreground">Denoiser</span>
-                  <span className="truncate text-right">{activeSpec.unet}</span>
-                  <span className="text-muted-foreground">Precision</span>
-                  <span className="text-right">{activeSpec.precision}</span>
-                  <span className="text-muted-foreground">Decoder</span>
-                  <span className="text-right">{activeSpec.decoder}</span>
-                </div>
-              </div>
-              <div className="mt-5 border-t border-darkroom-panel-edge pt-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-[.14em] text-muted-foreground">
-                    Post-processing
-                  </span>
-                  <WandSparkles className="h-3.5 w-3.5 text-darkroom-coral" />
-                </div>
-                {(
-                  [
-                    ["contrast", "Adaptive contrast"],
-                    ["wb", "White balance"],
-                    ["sharp", "Edge sharpening"],
-                    ["upscale", "Upscale to 512"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <div
-                    key={key}
-                    className="flex min-h-8 items-center justify-between gap-3 text-[10px]"
-                  >
-                    <span>{label}</span>
-                    <Switch
-                      checked={post[key]}
-                      onCheckedChange={(checked) => setPost((old) => ({ ...old, [key]: checked }))}
-                      aria-label={label}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section
-              className="darkroom-sheet darkroom-glass darkroom-surface min-w-[min(82vw,300px)] p-4 lg:min-w-0 lg:p-5"
-              aria-label="Generation pipeline"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-darkroom-teal" />
-                  <h2 className="font-display text-sm font-semibold">Live pipeline</h2>
-                </div>
-                <span
-                  className={`rounded-full px-2 py-1 text-[8px] uppercase tracking-[.12em] ${jobState === "loading" || jobState === "queued" ? "bg-darkroom-violet/15 text-darkroom-violet" : "bg-secondary text-muted-foreground"}`}
-                >
-                  {jobState === "queued" ? "Queued" : jobState === "loading" ? "Active" : "Standby"}
-                </span>
-              </div>
-              <div className="relative mt-5 space-y-0.5">
-                <div className="absolute bottom-4 left-[7px] top-4 w-px bg-darkroom-panel-edge" />
-                {STAGES.map((stage) => {
-                  const state = stageStates[stage];
-                  return (
-                    <div
-                      key={stage}
-                      className="relative flex min-h-10 items-center justify-between gap-3 py-1.5"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`relative z-[1] h-[9px] w-[9px] rounded-full border ${state.state === "run" ? "darkroom-gradient darkroom-pulse border-transparent shadow-[0_0_12px_var(--darkroom-violet)]" : state.state === "ok" ? "border-darkroom-teal bg-darkroom-teal" : "border-darkroom-panel-edge bg-darkroom-canvas"}`}
-                        />{" "}
-                        <span
-                          className={`text-[11px] ${state.state === "wait" ? "text-muted-foreground" : "text-foreground"}`}
-                        >
-                          {STAGE_LABEL[stage]}
+            {/* ========================================================== STUDIO */}
+            {view === "studio" && (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
+                <div className="min-w-0 space-y-5">
+                  {/* stage */}
+                  <div className="relative mx-auto aspect-square w-full max-w-[720px] overflow-hidden rounded-3xl border border-darkroom-panel-edge bg-darkroom-canvas shadow-[0_40px_120px_-50px_var(--darkroom-violet)]">
+                    {shownImage ? (
+                      <>
+                        <img
+                          className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
+                          src={result?.raw && result.processed ? result.raw : shownImage}
+                          alt={prompt ? `Generated scene: ${prompt}` : "Generated scene"}
+                        />
+                        {result?.raw && result.processed && (
+                          <img
+                            className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
+                            src={result.processed}
+                            alt=""
+                            style={{ clipPath: `inset(0 0 0 ${compareValue}%)` }}
+                          />
+                        )}
+                        {result?.raw && (
+                          <>
+                            <div
+                              className="pointer-events-none absolute inset-y-0 z-[5] w-0.5 bg-white/90 shadow-[0_0_14px_rgba(0,0,0,.7)]"
+                              style={{ left: `${compareValue}%` }}
+                            >
+                              <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/50 bg-black/60 text-white backdrop-blur">
+                                <ArrowLeftRight className="h-5 w-5" />
+                              </span>
+                            </div>
+                            <input
+                              className="absolute inset-0 z-[6] h-full w-full cursor-ew-resize opacity-0"
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={compareValue}
+                              onChange={(e) => setCompareValue(Number(e.target.value))}
+                              aria-label="Compare raw decode and post-processed image"
+                            />
+                            <span className="pointer-events-none absolute bottom-4 left-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                              Raw decode
+                            </span>
+                            <span className="pointer-events-none absolute bottom-4 right-4 z-[7] rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                              Post-processed
+                            </span>
+                          </>
+                        )}
+                        {showBoxes &&
+                          result?.detections.map((d, i) => (
+                            <div
+                              key={`${d.label}-${i}`}
+                              className="pointer-events-none absolute z-[8] rounded-md border-2"
+                              style={{
+                                borderColor: d.ok
+                                  ? "var(--darkroom-teal)"
+                                  : "var(--darkroom-coral)",
+                                borderStyle: d.ok ? "solid" : "dashed",
+                                left: `${d.box[0] * 100}%`,
+                                top: `${d.box[1] * 100}%`,
+                                width: `${(d.box[2] - d.box[0]) * 100}%`,
+                                height: `${(d.box[3] - d.box[1]) * 100}%`,
+                              }}
+                            >
+                              <span
+                                className="absolute -top-7 left-0 whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold text-black"
+                                style={{
+                                  background: d.ok
+                                    ? "var(--darkroom-teal)"
+                                    : "var(--darkroom-coral)",
+                                }}
+                              >
+                                {d.label} {Math.round(d.score * 100)}%
+                              </span>
+                            </div>
+                          ))}
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center p-8 text-center">
+                        <div>
+                          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
+                            <Sparkles className="h-7 w-7 text-darkroom-violet" />
+                          </div>
+                          <p className="font-display text-2xl font-semibold sm:text-3xl">
+                            {busy ? "Forming from noise…" : "Describe a scene."}
+                          </p>
+                          <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
+                            {busy
+                              ? "The first frames arrive in a moment."
+                              : "It will form out of noise in a few steps. Try one of the examples below."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {busy && (
+                      <div className="absolute right-4 top-4 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1.5 pl-1.5 pr-4 backdrop-blur-xl">
+                        <div className="relative grid h-11 w-11 place-items-center rounded-full p-[3px]">
+                          <div
+                            className="absolute inset-0 rounded-full"
+                            style={{
+                              background: `conic-gradient(var(--darkroom-violet) ${
+                                (step / Math.max(1, totalSteps)) * 360
+                              }deg, rgba(255,255,255,.12) 0deg)`,
+                            }}
+                          />
+                          <div className="relative grid h-full w-full place-items-center rounded-full bg-black text-xs font-semibold tabular-nums text-white">
+                            {step}/{totalSteps}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-white">
+                          {jobState === "queued" ? "Waiting for GPU" : "Denoising"}
                         </span>
                       </div>
-                      <span className="min-w-10 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                        {state.state === "run" ? (
-                          <LoaderCircle className="ml-auto h-3 w-3 animate-spin text-darkroom-violet" />
-                        ) : state.ms !== undefined ? (
-                          `${Math.round(state.ms)} ms`
-                        ) : (
-                          "—"
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-darkroom-panel-edge pt-3 text-[10px]">
-                <span className="text-muted-foreground">Total pipeline</span>
-                <span className="font-mono tabular-nums">
-                  {stageTotal > 0 ? `${Math.round(stageTotal)} ms` : "—"}
-                </span>
-              </div>
-              {statusMessage && (jobState === "queued" || connection === "unreachable") && (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-secondary/70 p-2.5 text-[10px] text-muted-foreground">
-                  <Wifi className="h-3.5 w-3.5 shrink-0" />
-                  {statusMessage}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <section
-            className="order-first min-w-0 lg:order-none"
-            aria-label="Image generation stage"
-          >
-            <div className="mb-3 flex items-end justify-between gap-2 px-0.5">
-              <div>
-                <div className="text-[9px] uppercase tracking-[.22em] text-darkroom-violet">
-                  LATENT SPACE / 01
-                </div>
-                <h1 className="mt-1 font-display text-xl font-semibold tracking-normal sm:text-2xl">
-                  Image stage
-                </h1>
-              </div>
-              <div className="flex items-center gap-2 text-[9px] uppercase tracking-[.13em] text-muted-foreground">
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${jobState === "loading" ? "darkroom-gradient darkroom-pulse" : "bg-darkroom-teal"}`}
-                />
-                {jobState === "loading"
-                  ? "FORMING"
-                  : jobState === "queued"
-                    ? "WAITING FOR GPU"
-                    : "READY"}
-              </div>
-            </div>
-            <div className="group relative mx-auto aspect-square w-full max-w-[720px] overflow-hidden rounded-[20px] border border-darkroom-panel-edge bg-darkroom-canvas shadow-[0_24px_100px_-42px_oklch(0_0_0/.9)]">
-              {preview ? (
-                <>
-                  <img
-                    className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
-                    src={result?.raw && result.processed ? result.raw : preview}
-                    alt={prompt ? `Generated scene: ${prompt}` : "Generated scene preview"}
-                  />
-                  {result?.raw && result.processed && (
-                    <img
-                      className="darkroom-stage-image absolute inset-0 h-full w-full object-cover"
-                      src={result.processed}
-                      alt="Post-processed image"
-                      style={{ clipPath: `inset(0 0 0 ${compareValue}%)` }}
-                    />
-                  )}
-                  {result?.raw && (
-                    <div
-                      className="absolute inset-y-0 z-[5] w-px bg-foreground/80 shadow-[0_0_12px_oklch(0_0_0/.7)]"
-                      style={{ left: `${compareValue}%` }}
-                    >
-                      <span className="absolute left-1/2 top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-foreground/40 bg-darkroom-canvas/80 text-foreground backdrop-blur">
-                        <ArrowLeftRight className="h-4 w-4" />
-                      </span>
-                    </div>
-                  )}
-                  {result?.raw && (
-                    <input
-                      className="darkroom-range absolute inset-x-3 bottom-3 z-10 h-6 w-[calc(100%-24px)] cursor-ew-resize opacity-0 focus:opacity-100"
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={compareValue}
-                      onChange={(e) => setCompareValue(Number(e.target.value))}
-                      aria-label="Compare raw and processed image"
-                    />
-                  )}
-                  {result?.detections.map((detection, index) => (
-                    <div
-                      key={`${detection.label}-${index}`}
-                      className="pointer-events-none absolute z-[6] border border-darkroom-teal"
-                      style={{
-                        left: `${detection.box[0] * 100}%`,
-                        top: `${detection.box[1] * 100}%`,
-                        width: `${(detection.box[2] - detection.box[0]) * 100}%`,
-                        height: `${(detection.box[3] - detection.box[1]) * 100}%`,
-                        opacity: showBoxes ? 1 : 0,
-                        transition: "opacity 180ms",
-                      }}
-                    >
-                      <span
-                        className="absolute -top-6 left-0 flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-1 text-[9px] font-medium text-darkroom-canvas"
-                        style={{
-                          background: detection.ok
-                            ? "var(--darkroom-teal)"
-                            : "var(--darkroom-coral)",
-                        }}
-                      >
-                        {detection.label}
-                        <span className="font-mono">{Math.round(detection.score * 100)}%</span>
-                      </span>
-                    </div>
-                  ))}
-                  <div className="absolute left-3 top-3 z-[7] flex items-center gap-2 rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/70 px-2.5 py-1.5 text-[9px] text-foreground backdrop-blur-xl">
-                    <ImageIcon className="h-3 w-3 text-darkroom-teal" />
-                    {result?.raw ? "POST-PROCESSED" : "PREVIEW FRAME"}
+                    )}
+                    {result && !busy && (
+                      <div className="absolute left-4 top-4 z-[9] rounded-full bg-black/60 px-3.5 py-2 text-sm font-medium tabular-nums text-white backdrop-blur">
+                        {TIER_LABEL[result.tier]} · {tiers[result.tier].steps} steps ·{" "}
+                        {latency.toFixed(2)} s
+                      </div>
+                    )}
                   </div>
-                  {result?.raw && (
-                    <>
-                      <span className="absolute bottom-3 left-3 z-[7] rounded bg-darkroom-canvas/70 px-2 py-1 text-[9px] text-foreground backdrop-blur">
-                        RAW
-                      </span>
-                      <span className="absolute bottom-3 right-3 z-[7] rounded bg-darkroom-canvas/70 px-2 py-1 text-[9px] text-foreground backdrop-blur">
-                        PROCESSED
-                      </span>
-                    </>
+
+                  {jobState === "error" && (
+                    <div className="mx-auto flex max-w-[720px] flex-col gap-3 rounded-2xl border border-darkroom-coral/30 bg-darkroom-coral/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex gap-3">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-darkroom-coral" />
+                        <div>
+                          <div className="font-medium">Generation stopped</div>
+                          <div className="mt-1 text-sm text-muted-foreground">{errorMessage}</div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          variant="outline"
+                          className="border-darkroom-panel-edge"
+                          onClick={() => {
+                            setRequestedTier("lite");
+                            window.setTimeout(() => beginRef.current(prompt, seedRef.current), 0);
+                          }}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Retry on Lite
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            closeServer("");
+                            beginGeneration(prompt, seedRef.current, true);
+                          }}
+                        >
+                          Use demo mode
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                  <div className="absolute right-3 top-3 z-[7] flex gap-1.5">
+                  {fallbackMessage && (
+                    <div className="mx-auto flex max-w-[720px] items-start gap-3 rounded-2xl border border-darkroom-warning/30 bg-darkroom-warning/10 px-4 py-3 text-sm text-darkroom-warning">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{fallbackMessage}</span>
+                    </div>
+                  )}
+
+                  {/* prompt composer */}
+                  <form
+                    className="darkroom-glass mx-auto max-w-[720px] rounded-3xl p-4 sm:p-5"
+                    onSubmit={submit}
+                  >
+                    <label htmlFor="prompt" className="text-sm font-medium text-muted-foreground">
+                      Your prompt
+                    </label>
+                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <Textarea
+                        id="prompt"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={handlePromptKey}
+                        placeholder="a red cube to the left of a blue sphere on a wooden table at sunset"
+                        className="min-h-[88px] flex-1 resize-none rounded-2xl border-darkroom-panel-edge bg-darkroom-canvas/60 px-4 py-3 text-base leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-darkroom-violet/50"
+                      />
+                      <Button
+                        type="submit"
+                        disabled={busy}
+                        className="darkroom-active h-14 shrink-0 gap-2 rounded-2xl px-7 text-base font-semibold sm:w-auto"
+                      >
+                        {busy ? (
+                          <LoaderCircle className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-5 w-5" />
+                        )}
+                        {busy ? "Generating" : "Generate"}
+                      </Button>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {SUGGESTIONS.map((s) => (
+                        <button
+                          type="button"
+                          key={s}
+                          onClick={() => setPrompt(s)}
+                          className="rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/40 px-3.5 py-1.5 text-left text-sm text-muted-foreground transition hover:border-darkroom-violet/50 hover:text-foreground"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-darkroom-panel-edge pt-3 text-sm text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => setShowBoxes((v) => !v)}
+                        className="flex items-center gap-2 hover:text-foreground"
+                      >
+                        <Crosshair className="h-4 w-4 text-darkroom-teal" />
+                        {showBoxes ? "Hide detection boxes" : "Show detection boxes"}
+                      </button>
+                      <span className="tabular-nums">
+                        {mounted ? `Seed ${seedRef.current}` : ""} · Enter to generate
+                      </span>
+                    </div>
+                  </form>
+
+                  {/* metrics */}
+                  <section aria-label="This image" className="mx-auto max-w-[720px]">
+                    <h2 className="mb-3 font-display text-xl font-semibold">
+                      {result ? "This image" : `${TIER_LABEL[activeTier]} tier, measured on a T4`}
+                    </h2>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      <BigStat
+                        label="Generation time"
+                        value={
+                          result
+                            ? `${(resultGenMs / 1000).toFixed(2)} s`
+                            : `${(activeSpec.measured.gen_ms_mean / 1000).toFixed(2)} s`
+                        }
+                        note={`${baselineFast.toFixed(0)}× faster than baseline`}
+                        accent
+                      />
+                      <BigStat
+                        label="CLIP similarity"
+                        value={
+                          (result ? result.metrics.clip : activeSpec.measured.clip) !== null
+                            ? (result
+                                ? (result.metrics.clip ?? 0)
+                                : activeSpec.measured.clip
+                              ).toFixed(3)
+                            : "—"
+                        }
+                        note={`baseline ${base.clip.toFixed(3)}`}
+                      />
+                      <BigStat
+                        label="Model size"
+                        value={`${((result?.metrics.model_mb ?? activeSpec.measured.sizeMB) / 1000).toFixed(2)} GB`}
+                        note={`baseline ${(base.sizeMB / 1000).toFixed(2)} GB`}
+                      />
+                      <BigStat
+                        label="Peak memory"
+                        value={
+                          result?.metrics.peak_mb
+                            ? `${(result.metrics.peak_mb / 1000).toFixed(2)} GB`
+                            : result
+                              ? "—"
+                              : `${(activeSpec.measured.peakMB / 1000).toFixed(1)} GB`
+                        }
+                        note={`device allows ${(allowance / 1000).toFixed(1)} GB`}
+                      />
+                      <BigStat
+                        label="Sharpness"
+                        value={
+                          result && typeof result.qa["sharpness"] === "number"
+                            ? Math.round(result.qa["sharpness"] as number).toLocaleString()
+                            : "—"
+                        }
+                        note="Laplacian variance"
+                      />
+                      <BigStat
+                        label="Clipped pixels"
+                        value={
+                          result && typeof result.qa["clipped_pct"] === "number"
+                            ? `${(result.qa["clipped_pct"] as number).toFixed(2)}%`
+                            : "—"
+                        }
+                        note="blown highlights + crushed shadows"
+                      />
+                    </div>
+                  </section>
+
+                  {/* checks */}
+                  <section
+                    aria-label="Prompt verification"
+                    className="darkroom-glass mx-auto max-w-[720px] rounded-3xl p-5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h2 className="font-display text-xl font-semibold">
+                          Does it match the prompt?
+                        </h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Objects, colours and positions checked by an open-vocabulary detector.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-3 text-sm text-muted-foreground">
+                        Retry on failure
+                        <Switch
+                          checked={autoRetry}
+                          onCheckedChange={setAutoRetry}
+                          aria-label="Retry automatically when a check fails"
+                        />
+                      </label>
+                    </div>
+                    {checks.length ? (
+                      <ul className="mt-4 space-y-2.5">
+                        <li
+                          className={`text-sm font-medium ${failedChecks ? "text-darkroom-coral" : "text-darkroom-success"}`}
+                        >
+                          {resultChecks.length - failedChecks} of {resultChecks.length} checks
+                          passed
+                        </li>
+                        {checks.map((c, i) => (
+                          <li key={`${c.text}-${i}`} className="flex items-center gap-3 text-base">
+                            <span
+                              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                                c.ok
+                                  ? "bg-darkroom-success/15 text-darkroom-success"
+                                  : "bg-darkroom-coral/15 text-darkroom-coral"
+                              }`}
+                            >
+                              {c.ok ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                            </span>
+                            <span className={c.ok ? "" : "text-darkroom-coral"}>{c.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-sm text-muted-foreground">
+                        Checks appear when the image is ready.
+                      </p>
+                    )}
+                  </section>
+
+                  {history.length > 0 && (
+                    <section aria-label="Recent images" className="mx-auto max-w-[720px]">
+                      <h2 className="mb-3 font-display text-xl font-semibold">Recent</h2>
+                      <div className="darkroom-scrollbar flex gap-3 overflow-x-auto pb-2">
+                        {history.map((h) => (
+                          <button
+                            key={h.id}
+                            type="button"
+                            onClick={() => applyHistory(h)}
+                            className="group w-28 shrink-0 text-left"
+                          >
+                            <img
+                              src={h.image}
+                              alt={h.prompt}
+                              className="aspect-square w-28 rounded-xl border border-darkroom-panel-edge object-cover transition group-hover:border-darkroom-violet"
+                            />
+                            <span className="mt-1.5 block truncate text-xs text-muted-foreground">
+                              {h.prompt}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+
+                {/* sidebar */}
+                <aside className="space-y-5 lg:sticky lg:top-5 lg:self-start">
+                  <Panel
+                    title="Compute budget"
+                    icon={Cpu}
+                    hint={requestedTier === "adaptive" ? "Adaptive" : "Manual"}
+                  >
+                    <FieldLabel>Device</FieldLabel>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(["auto", "budget", "mid", "flagship"] as DeviceKey[]).map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setDevice(key)}
+                          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                            device === key
+                              ? "bg-secondary text-foreground ring-1 ring-darkroom-violet/50"
+                              : "border border-darkroom-panel-edge text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {key === "auto"
+                            ? `Auto (${DEVICE_LABEL[resolvedDevice].split(" ")[0]})`
+                            : DEVICE_LABEL[key]}
+                        </button>
+                      ))}
+                    </div>
+                    <FieldLabel>Quality tier</FieldLabel>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(["adaptive", "quality", "balanced", "lite"] as const).map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setRequestedTier(key)}
+                          aria-pressed={requestedTier === key}
+                          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                            requestedTier === key
+                              ? "darkroom-active"
+                              : "border border-darkroom-panel-edge text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {key === "adaptive" ? "Adaptive" : TIER_LABEL[key]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Memory use</span>
+                        <span className="font-medium tabular-nums">
+                          {(activeSpec.measured.peakMB / 1000).toFixed(1)} /{" "}
+                          {(allowance / 1000).toFixed(1)} GB
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className={`h-full rounded-full transition-all ${tierDecision.downgraded ? "bg-darkroom-warning" : "darkroom-gradient"}`}
+                          style={{
+                            width: `${Math.min(100, (activeSpec.measured.peakMB / allowance) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {tierDecision.downgraded && (
+                      <div className="mt-4 flex gap-2.5 rounded-xl border border-darkroom-warning/30 bg-darkroom-warning/10 p-3 text-sm text-darkroom-warning">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>
+                          {TIER_LABEL[tierDecision.requested ?? activeTier]} needs more memory than
+                          this device allows. Using {TIER_LABEL[activeTier]} instead.
+                        </span>
+                      </div>
+                    )}
+                    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-darkroom-panel-edge pt-4 text-sm">
+                      <dt className="text-muted-foreground">Running</dt>
+                      <dd className="text-right font-semibold">{TIER_LABEL[activeTier]}</dd>
+                      <dt className="text-muted-foreground">Denoiser</dt>
+                      <dd className="text-right">{activeSpec.unet}</dd>
+                      <dt className="text-muted-foreground">Steps</dt>
+                      <dd className="text-right tabular-nums">{activeSpec.steps}</dd>
+                      <dt className="text-muted-foreground">Resolution</dt>
+                      <dd className="text-right tabular-nums">{activeSpec.res} px</dd>
+                      <dt className="text-muted-foreground">Precision</dt>
+                      <dd className="text-right">{activeSpec.precision}</dd>
+                      <dt className="text-muted-foreground">Decoder</dt>
+                      <dd className="text-right">{activeSpec.decoder}</dd>
+                    </dl>
+                  </Panel>
+
+                  <Panel
+                    title="Live pipeline"
+                    icon={Activity}
+                    hint={busy ? "Running" : result ? "Done" : "Idle"}
+                  >
+                    <ol className="relative space-y-1">
+                      <span
+                        className="absolute bottom-3 left-[9px] top-3 w-px bg-darkroom-panel-edge"
+                        aria-hidden
+                      />
+                      {STAGES.map((stage) => {
+                        const s = stageStates[stage];
+                        return (
+                          <li
+                            key={stage}
+                            className="relative flex items-center justify-between gap-3 py-2"
+                          >
+                            <span className="flex items-center gap-3">
+                              <span
+                                className={`relative z-[1] h-[19px] w-[19px] rounded-full border-2 ${
+                                  s.state === "run"
+                                    ? "darkroom-gradient darkroom-pulse border-transparent"
+                                    : s.state === "ok"
+                                      ? "border-darkroom-teal bg-darkroom-teal"
+                                      : "border-darkroom-panel-edge bg-darkroom-canvas"
+                                }`}
+                              />
+                              <span
+                                className={`text-base ${s.state === "wait" ? "text-muted-foreground" : ""}`}
+                              >
+                                {STAGE_LABEL[stage]}
+                              </span>
+                            </span>
+                            <span className="text-sm tabular-nums text-muted-foreground">
+                              {s.state === "run" ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin text-darkroom-violet" />
+                              ) : s.ms !== undefined ? (
+                                `${Math.round(s.ms)} ms`
+                              ) : (
+                                "—"
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                    <div className="mt-3 flex justify-between border-t border-darkroom-panel-edge pt-3 text-base">
+                      <span className="text-muted-foreground">Total</span>
+                      <span className="font-semibold tabular-nums">
+                        {stageTotal > 0 ? `${Math.round(stageTotal)} ms` : "—"}
+                      </span>
+                    </div>
+                  </Panel>
+
+                  <Panel title="Classical post-processing" icon={WandSparkles}>
+                    {(
+                      [
+                        ["contrast", "Adaptive contrast", "CLAHE on luminance"],
+                        ["wb", "White balance", "Gray-world correction"],
+                        ["sharp", "Edge-aware sharpening", "Only along detected edges"],
+                        ["upscale", "Upscale to 512 px", "Lanczos, for the 384 px Lite tier"],
+                      ] as const
+                    ).map(([key, label, sub]) => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-center justify-between gap-3 border-b border-darkroom-panel-edge py-3 last:border-0"
+                      >
+                        <span>
+                          <span className="block text-base">{label}</span>
+                          <span className="block text-sm text-muted-foreground">{sub}</span>
+                        </span>
+                        <Switch
+                          checked={post[key]}
+                          onCheckedChange={(v) => setPost((old) => ({ ...old, [key]: v }))}
+                          aria-label={label}
+                        />
+                      </label>
+                    ))}
+                  </Panel>
+                </aside>
+              </div>
+            )}
+
+            {/* ======================================================= BENCHMARKS */}
+            {view === "bench" && (
+              <div className="space-y-10">
+                <section>
+                  <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                    {Math.round(base.gen_ms_mean / Math.max(1, balanced.gen_ms_mean))}× faster.{" "}
+                    {(base.sizeMB / Math.max(1, lite.measured.sizeMB)).toFixed(1)}× smaller.
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
+                    The optimised tiers against the 50-step FP32 baseline, measured on a Tesla T4
+                    with fixed seeds over COCO captions.
+                  </p>
+                  <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {tierOrder.map((k) => {
+                      const t = tiers[k];
+                      const m = t.measured;
+                      return (
+                        <div
+                          key={k}
+                          className={`darkroom-glass rounded-3xl p-5 ${k === activeTier ? "ring-2 ring-darkroom-coral/70" : ""}`}
+                        >
+                          <div className="flex items-baseline justify-between">
+                            <h3 className="font-display text-xl font-semibold">{t.name}</h3>
+                            <span className="text-sm text-muted-foreground">
+                              {t.steps} steps · {t.precision}
+                            </span>
+                          </div>
+                          <div
+                            className={`mt-4 font-display text-4xl font-semibold tabular-nums ${k === "baseline" ? "" : "text-darkroom-coral"}`}
+                          >
+                            {(m.gen_ms_mean / 1000).toFixed(m.gen_ms_mean < 10000 ? 2 : 1)} s
+                          </div>
+                          <div className="text-sm text-muted-foreground">per image</div>
+                          <dl className="mt-4 grid grid-cols-2 gap-y-1.5 text-sm">
+                            <dt className="text-muted-foreground">CLIP</dt>
+                            <dd className="text-right tabular-nums">{m.clip.toFixed(3)}</dd>
+                            <dt className="text-muted-foreground">Model size</dt>
+                            <dd className="text-right tabular-nums">
+                              {(m.sizeMB / 1000).toFixed(2)} GB
+                            </dd>
+                            <dt className="text-muted-foreground">Decoder</dt>
+                            <dd className="text-right">{t.decoder}</dd>
+                            <dt className="text-muted-foreground">Resolution</dt>
+                            <dd className="text-right tabular-nums">{t.res} px</dd>
+                          </dl>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className="darkroom-glass rounded-3xl p-5 sm:p-7">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <h2 className="font-display text-2xl font-semibold">The race</h2>
+                      <p className="mt-1 text-base text-muted-foreground">
+                        Same prompt and seed: the {TIER_LABEL[activeTier]} tier against full Stable
+                        Diffusion 1.5.
+                      </p>
+                    </div>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 rounded-full border-darkroom-panel-edge bg-darkroom-canvas/70 px-2.5 text-[9px] backdrop-blur"
-                      onClick={() => setShowBoxes((old) => !old)}
+                      className="darkroom-active h-12 rounded-2xl px-6 text-base"
+                      onClick={runRace}
+                      disabled={raceState === "running"}
                     >
-                      <Crosshair className="h-3 w-3 text-darkroom-teal" />
-                      {showBoxes ? "Boxes on" : "Boxes off"}
+                      {raceState === "running" ? (
+                        <LoaderCircle className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Play className="h-5 w-5" />
+                      )}
+                      {raceState === "running"
+                        ? "Racing…"
+                        : raceState === "done"
+                          ? "Race again"
+                          : "Start the race"}
                     </Button>
                   </div>
-                </>
-              ) : (
-                <div className="absolute inset-0 overflow-hidden">
-                  <div
-                    className={`absolute inset-0 bg-[radial-gradient(ellipse_at_50%_60%,oklch(0.39_0.17_285/.27),transparent_42%),radial-gradient(ellipse_at_72%_22%,oklch(0.54_0.15_38/.14),transparent_35%)] transition-opacity duration-700 ${jobState === "loading" ? "opacity-100" : "opacity-65"}`}
-                  />
-                  <div className="absolute inset-0 darkroom-noise-grain opacity-[.22]" />
-                  <div className="absolute inset-0 grid place-items-center">
-                    <div className="text-center">
-                      <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-darkroom-panel-edge bg-darkroom-panel text-darkroom-violet">
-                        <Sparkles className="h-5 w-5" />
-                      </div>
-                      <p className="font-display text-sm text-foreground/85 sm:text-base">
-                        Describe a scene. It will form out of noise in a few steps.
-                      </p>
-                      <p className="mt-2 text-[10px] text-muted-foreground">
-                        {jobState === "queued"
-                          ? "Waiting for GPU capacity…"
-                          : jobState === "loading"
-                            ? "Latent field initializing…"
-                            : "READY WHEN YOU ARE"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="absolute bottom-3 left-3 rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/70 px-2.5 py-1.5 text-[9px] uppercase tracking-[.14em] text-muted-foreground backdrop-blur">
-                    512 × 512 · RGB
-                  </div>
-                </div>
-              )}
-              {(jobState === "loading" || jobState === "queued") && (
-                <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2.5 rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/80 py-1.5 pl-1.5 pr-3 backdrop-blur-xl">
-                  <div className="relative grid h-8 w-8 place-items-center rounded-full bg-darkroom-panel p-[3px]">
-                    <div
-                      className="absolute inset-0 rounded-full darkroom-ring"
-                      style={{
-                        background: `conic-gradient(var(--darkroom-violet) ${(step / Math.max(1, totalSteps)) * 360}deg, var(--darkroom-panel-edge) 0deg)`,
-                      }}
-                    />
-                    <div className="relative grid h-full w-full place-items-center rounded-full bg-darkroom-canvas text-[9px] font-semibold tabular-nums">
-                      {step}/{totalSteps}
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-foreground">
-                    {jobState === "queued" ? "Waiting for GPU" : "Generating"}
-                  </span>
-                </div>
-              )}
-            </div>
-            {jobState === "error" && (
-              <div className="mt-3 flex flex-col gap-3 rounded-xl border border-darkroom-coral/25 bg-darkroom-coral/10 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 gap-2.5">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-darkroom-coral" />
-                  <div>
-                    <div className="text-xs font-medium">Generation interrupted</div>
-                    <div className="mt-1 break-words text-[10px] text-muted-foreground">
-                      {errorMessage}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 border-darkroom-panel-edge text-[10px]"
-                    onClick={() => {
-                      setRequestedTier("lite");
-                      window.setTimeout(() => beginRef.current(prompt, seedRef.current), 0);
-                    }}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Retry on Lite
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 text-[10px]"
-                    onClick={() => {
-                      closeServer("");
-                      beginGeneration(prompt, seedRef.current, true);
-                    }}
-                  >
-                    Use demo mode
-                  </Button>
-                </div>
-              </div>
-            )}
-            {fallbackMessage && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-darkroom-warning/25 bg-darkroom-warning/10 px-3 py-2.5 text-[10px] text-darkroom-warning">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{fallbackMessage}</span>
-              </div>
-            )}
-            <form className="darkroom-glass darkroom-surface mt-3 p-3 sm:p-4" onSubmit={submit}>
-              <div className="flex items-start gap-3">
-                <div className="mt-2 hidden h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-darkroom-violet sm:grid">
-                  <WandSparkles className="h-4 w-4" />
-                </div>
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handlePromptKey}
-                  placeholder="Describe the image you want to bring into focus…"
-                  aria-label="Image prompt"
-                  className="min-h-[72px] resize-none border-0 bg-transparent px-1 py-2 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0"
-                />
-                <Button
-                  type="submit"
-                  disabled={jobState === "loading" || jobState === "queued"}
-                  className="darkroom-active mt-1 h-10 shrink-0 gap-2 rounded-xl px-4 text-xs font-semibold"
-                >
-                  <span className="hidden sm:inline">
-                    {jobState === "loading"
-                      ? "Generating…"
-                      : jobState === "queued"
-                        ? "Queued…"
-                        : "Generate"}
-                  </span>
-                  <Send className="h-4 w-4 sm:hidden" />
-                  <Sparkles className="hidden h-3.5 w-3.5 sm:block" />
-                </Button>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-darkroom-panel-edge pt-2.5">
-                <span className="mr-1 text-[9px] uppercase tracking-[.14em] text-muted-foreground">
-                  Try
-                </span>
-                {SUGGESTIONS.map((suggestion, index) => (
-                  <Button
-                    type="button"
-                    key={suggestion}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 max-w-full rounded-full border border-darkroom-panel-edge px-2.5 text-[9px] text-muted-foreground hover:border-darkroom-violet/40 hover:text-foreground"
-                    onClick={() => setPrompt(suggestion)}
-                  >
-                    <span className="truncate">
-                      {["CUBE + SPHERE", "TEMPLE AT NIGHT", "CUP + BOOK", "CAT + LAMP"][index]}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            </form>
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-[9px] text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span className="rounded-full border border-darkroom-panel-edge bg-darkroom-panel px-2 py-1 font-mono text-[9px]">
-                  {TIER_LABEL[result?.tier ?? activeTier]} ·{" "}
-                  {tiers[result?.tier ?? activeTier].steps} steps ·{" "}
-                  {tiers[result?.tier ?? activeTier].precision} · {latency.toFixed(2)} s
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 rounded-full px-2 text-[9px] text-darkroom-teal"
-                  onClick={() => setShowBoxes((old) => !old)}
-                >
-                  <Crosshair className="h-3 w-3" />
-                  {showBoxes ? "Detections on" : "Detections off"}
-                </Button>
-              </div>
-              <span className="tabular-nums">
-                {mounted ? `Seed ${seedRef.current.toString().padStart(5, "0")}` : ""}
-              </span>
-            </div>
-
-            <section className="mt-7" aria-label="Generation quality metrics">
-              <div className="mb-3 flex items-end justify-between">
-                <div>
-                  <div className="text-[9px] uppercase tracking-[.22em] text-darkroom-coral">
-                    TELEMETRY / 02
-                  </div>
-                  <h2 className="mt-1 font-display text-lg font-semibold">Quality & cost</h2>
-                </div>
-                <span className="text-[9px] text-muted-foreground">LIVE SNAPSHOT</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {[
-                  {
-                    label: "CLIP similarity",
-                    value: result ? result.metrics.clip : activeSpec.measured.clip,
-                    suffix: "",
-                    icon: Gauge,
-                    detail: result ? "Prompt alignment" : "Tier average",
-                    digits: 3,
-                  },
-                  {
-                    label: "Latency",
-                    value: result
-                      ? result.metrics.total_ms / 1000
-                      : activeSpec.measured.gen_ms_mean / 1000,
-                    suffix: "s",
-                    icon: Timer,
-                    detail: `${baselineFast.toFixed(1)}× faster than baseline`,
-                    color: "text-darkroom-coral",
-                    digits: 2,
-                  },
-                  {
-                    label: "Peak memory",
-                    value: result ? result.metrics.peak_mb : activeSpec.measured.peakMB,
-                    suffix: " MB",
-                    icon: MemoryStick,
-                    detail: `Allowance ${allowance.toLocaleString()} MB`,
-                  },
-                  {
-                    label: "Model size",
-                    value: result?.metrics.model_mb ?? activeSpec.measured.sizeMB,
-                    suffix: " MB",
-                    icon: Layers3,
-                    detail: activeSpec.precision,
-                  },
-                  {
-                    label: "Sharpness",
-                    value:
-                      result && typeof result.qa["sharpness"] === "number"
-                        ? (result.qa["sharpness"] as number)
-                        : null,
-                    suffix: "",
-                    icon: Maximize2,
-                    detail: "Laplacian variance",
-                    digits:
-                      result &&
-                      typeof result.qa["sharpness"] === "number" &&
-                      (result.qa["sharpness"] as number) < 10
-                        ? 2
-                        : 0,
-                  },
-                  {
-                    label: "Clipped pixels",
-                    value:
-                      result && typeof result.qa["clipped_pct"] === "number"
-                        ? (result.qa["clipped_pct"] as number)
-                        : null,
-                    suffix: "%",
-                    icon: CircleHelp,
-                    detail: "Highlight / shadow",
-                    digits: 2,
-                  },
-                ].map((item) => (
-                  <Metric key={item.label} {...item} />
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-7" aria-label="Prompt verification">
-              <div className="flex items-end justify-between gap-2">
-                <div>
-                  <div className="text-[9px] uppercase tracking-[.22em] text-darkroom-teal">
-                    PROMPT QA / 03
-                  </div>
-                  <h2 className="mt-1 font-display text-lg font-semibold">
-                    Does it match the prompt?
-                  </h2>
-                </div>
-                <span
-                  className={`text-[10px] font-medium tabular-nums ${failedChecks > 0 ? "text-darkroom-coral" : "text-muted-foreground"}`}
-                >
-                  {checks.length
-                    ? `${resultChecks.length - failedChecks} of ${resultChecks.length} passed`
-                    : "AWAITING IMAGE"}
-                </span>
-              </div>
-              <div className="darkroom-glass darkroom-surface mt-3 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-darkroom-teal" />
-                    <span className="text-[11px] font-medium">Semantic verification</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                    <span>Auto-retry on failure</span>
-                    <Switch
-                      checked={autoRetry}
-                      onCheckedChange={setAutoRetry}
-                      aria-label="Retry automatically when a check fails"
-                    />
-                  </div>
-                </div>
-                {checks.length ? (
-                  <div className="space-y-2">
-                    {checks.map((check, index) => (
+                  <div className="mx-auto mt-6 grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
+                    {(
+                      [
+                        {
+                          key: "current",
+                          label: TIER_LABEL[activeTier],
+                          sub: `${activeSpec.steps} steps · ${activeSpec.precision}`,
+                          img: racePreview,
+                          time: raceClock.current ?? raceTimes?.current,
+                          mem: raceMem?.current,
+                          hot: true,
+                        },
+                        {
+                          key: "base",
+                          label: "Baseline",
+                          sub: "SD 1.5 · FP32 · 50 steps",
+                          img: baselinePreview,
+                          time: raceClock.baseline ?? raceTimes?.baseline,
+                          mem: raceMem?.baseline,
+                          hot: false,
+                        },
+                      ] as const
+                    ).map((lane) => (
                       <div
-                        key={`${check.text}-${index}`}
-                        className="flex items-center gap-2 text-[10px]"
+                        key={lane.key}
+                        className="overflow-hidden rounded-2xl border border-darkroom-panel-edge bg-darkroom-canvas/50"
                       >
-                        <span
-                          className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${check.ok ? "bg-darkroom-success/15 text-darkroom-success" : "bg-darkroom-coral/15 text-darkroom-coral"}`}
-                        >
-                          {check.ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                        </span>
-                        <span className={check.ok ? "text-foreground/85" : "text-darkroom-coral"}>
-                          {check.text}
-                        </span>
+                        <div className="relative aspect-square">
+                          {lane.img ? (
+                            <img
+                              src={lane.img}
+                              alt={`${lane.label} output`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="grid h-full place-items-center text-muted-foreground">
+                              <ImageIcon className="h-10 w-10 opacity-30" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-5">
+                          <div className="flex items-baseline justify-between">
+                            <span className="font-display text-lg font-semibold">{lane.label}</span>
+                            <span className="text-sm text-muted-foreground">{lane.sub}</span>
+                          </div>
+                          <div
+                            className={`mt-3 font-display text-5xl font-semibold tabular-nums ${lane.hot ? "text-darkroom-coral" : ""}`}
+                          >
+                            {lane.time ? `${lane.time.toFixed(2)}s` : "—"}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-[10px] text-muted-foreground">
-                    Checks appear when the image is ready.
-                  </div>
-                )}
-              </div>
-            </section>
-          </section>
-
-          <div
-            className={`darkroom-sheet-rail flex gap-3 overflow-x-auto lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:flex-col lg:overflow-y-auto ${showRails ? "" : "max-lg:hidden"}`}
-          >
-            <section
-              className="darkroom-sheet darkroom-glass darkroom-surface min-w-[min(84vw,320px)] p-4 lg:min-w-0 lg:p-5"
-              aria-label="Race comparison"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Timer className="h-4 w-4 text-darkroom-coral" />
-                  <h2 className="font-display text-sm font-semibold">The race</h2>
-                </div>
-                <span className="text-[9px] uppercase tracking-[.14em] text-muted-foreground">
-                  ONE GPU
-                </span>
-              </div>
-              <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-                Optimized pipeline versus full Stable Diffusion 1.5.
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {[
-                  {
-                    key: "current",
-                    label: TIER_LABEL[activeTier],
-                    sub: `${activeSpec.steps} steps · ${activeSpec.precision}`,
-                    image: racePreview,
-                    time: raceClock.current ?? raceTimes?.current,
-                    mem: raceMem?.current,
-                    active: true,
-                  },
-                  {
-                    key: "base",
-                    label: "Baseline",
-                    sub: "SD 1.5 · FP32 · 50 steps",
-                    image: baselinePreview,
-                    time: raceClock.baseline ?? raceTimes?.baseline,
-                    mem: raceMem?.baseline,
-                    active: false,
-                  },
-                ].map((entry) => (
-                  <div
-                    key={entry.key}
-                    className="overflow-hidden rounded-xl border border-darkroom-panel-edge bg-darkroom-canvas/45"
-                  >
-                    <div className="relative aspect-square bg-secondary/40">
-                      {entry.image ? (
-                        <img
-                          src={entry.image}
-                          alt={`${entry.label} race preview`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="grid h-full place-items-center text-muted-foreground">
-                          <ImageIcon className="h-6 w-6 opacity-30" />
-                        </div>
-                      )}
-                      <span
-                        className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[8px] ${entry.active ? "darkroom-active" : "bg-darkroom-panel text-muted-foreground"}`}
-                      >
-                        {entry.active ? "CURRENT" : "BASELINE"}
-                      </span>
+                  {raceState === "done" && raceTimes && (
+                    <div className="mt-5 rounded-2xl border border-darkroom-teal/30 bg-darkroom-teal/10 p-4 text-center text-lg text-darkroom-teal">
+                      <span className="font-semibold">
+                        {(raceTimes.baseline / Math.max(0.01, raceTimes.current)).toFixed(1)}×
+                        faster
+                      </span>{" "}
+                      on the same prompt and seed
                     </div>
-                    <div className="p-2.5">
-                      <div className="truncate text-[10px] font-medium">{entry.label}</div>
-                      <div className="mt-0.5 truncate text-[8px] text-muted-foreground">
-                        {entry.sub}
-                      </div>
-                      <div className="mt-3 font-display text-lg font-semibold tabular-nums">
-                        {entry.time ? `${entry.time.toFixed(2)}s` : "—.—s"}
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-[8px] text-muted-foreground">
-                        <span>Peak memory</span>
-                        <span className="tabular-nums">
-                          {entry.mem ? `${Math.round(entry.mem).toLocaleString()} MB` : "—"}
+                  )}
+                  {raceError && <p className="mt-4 text-sm text-darkroom-coral">{raceError}</p>}
+                  {!isLive && (
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      Demo mode replays the measured T4 timings. Connect the server to race the real
+                      models.
+                    </p>
+                  )}
+                </section>
+
+                <section className="darkroom-glass rounded-3xl p-5 sm:p-7">
+                  <h2 className="font-display text-2xl font-semibold">Quality against cost</h2>
+                  <p className="mt-1 text-base text-muted-foreground">
+                    Each point is one tier. Up and to the left is better; bubble size is model size.
+                  </p>
+                  <div className="mt-6 h-[360px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
+                        <CartesianGrid stroke="var(--darkroom-panel-edge)" strokeDasharray="3 5" />
+                        <XAxis
+                          dataKey="latency"
+                          type="number"
+                          scale="log"
+                          domain={[
+                            Math.min(...chartData.map((d) => d.latency)) / 1.8,
+                            Math.max(...chartData.map((d) => d.latency)) * 1.8,
+                          ]}
+                          ticks={[200, 500, 1000, 2000, 5000, 10000, 20000, 50000].filter(
+                            (v) =>
+                              v >= Math.min(...chartData.map((d) => d.latency)) / 1.8 &&
+                              v <= Math.max(...chartData.map((d) => d.latency)) * 1.8,
+                          )}
+                          tickFormatter={(v: number) => `${v / 1000}s`}
+                          tick={{ fill: "var(--darkroom-dim)", fontSize: 13 }}
+                          label={{
+                            value: "Generation time per image (log scale)",
+                            position: "bottom",
+                            offset: 10,
+                            fill: "var(--darkroom-dim)",
+                            fontSize: 13,
+                          }}
+                        />
+                        <YAxis
+                          dataKey="clip"
+                          type="number"
+                          domain={[
+                            Math.floor((Math.min(...chartData.map((d) => d.clip)) - 0.006) * 100) /
+                              100,
+                            Math.ceil((Math.max(...chartData.map((d) => d.clip)) + 0.006) * 100) /
+                              100,
+                          ]}
+                          tickFormatter={(v: number) => v.toFixed(2)}
+                          tick={{ fill: "var(--darkroom-dim)", fontSize: 13 }}
+                          width={48}
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          content={({ active, payload }) => {
+                            const p = payload?.[0]?.payload as
+                              { tier?: TierKey; latency?: number; clip?: number } | undefined;
+                            return active && p?.tier ? (
+                              <div className="rounded-xl border border-darkroom-panel-edge bg-darkroom-canvas/95 px-3 py-2 text-sm shadow-xl">
+                                <div className="font-semibold">{TIER_LABEL[p.tier]}</div>
+                                <div className="text-muted-foreground">
+                                  {((p.latency ?? 0) / 1000).toFixed(2)} s · CLIP{" "}
+                                  {(p.clip ?? 0).toFixed(3)}
+                                </div>
+                              </div>
+                            ) : null;
+                          }}
+                        />
+                        <Scatter
+                          data={chartData}
+                          shape={(props: {
+                            cx?: number;
+                            cy?: number;
+                            payload?: { tier?: string; fill?: string };
+                          }) => {
+                            const k = (props.payload?.tier ?? "lite") as TierKey;
+                            const r = 8 + Math.sqrt(tiers[k].measured.sizeMB) / 6;
+                            return (
+                              <g>
+                                <circle
+                                  cx={props.cx}
+                                  cy={props.cy}
+                                  r={r}
+                                  fill={props.payload?.fill}
+                                  fillOpacity={0.85}
+                                  stroke={k === activeTier ? "white" : "none"}
+                                  strokeWidth={2}
+                                />
+                                <text
+                                  x={(props.cx ?? 0) + r + 6}
+                                  y={(props.cy ?? 0) + 5}
+                                  fill="var(--foreground)"
+                                  fontSize={14}
+                                >
+                                  {TIER_LABEL[k]}
+                                </text>
+                              </g>
+                            );
+                          }}
+                        />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </section>
+
+                <section className="darkroom-glass overflow-x-auto rounded-3xl p-5 sm:p-7">
+                  <h2 className="font-display text-2xl font-semibold">
+                    What each optimisation buys
+                  </h2>
+                  <p className="mt-1 text-base text-muted-foreground">
+                    Ablation on a T4: one factor changed at a time.
+                  </p>
+                  <table className="mt-5 w-full min-w-[560px] text-left text-base">
+                    <thead className="text-sm text-muted-foreground">
+                      <tr className="border-b border-darkroom-panel-edge">
+                        <th className="py-3 font-medium">Change</th>
+                        <th className="py-3 font-medium">Latency</th>
+                        <th className="py-3 font-medium">CLIP</th>
+                        <th className="py-3 font-medium">Takeaway</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ABLATION.map((r) => (
+                        <tr
+                          key={r[0]}
+                          className="border-b border-darkroom-panel-edge/60 last:border-0"
+                        >
+                          <td className="py-3 pr-4 font-medium">{r[0]}</td>
+                          <td className="py-3 pr-4 tabular-nums">{r[1]}</td>
+                          <td className="py-3 pr-4 tabular-nums">{r[2]}</td>
+                          <td className="py-3 text-muted-foreground">{r[3]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              </div>
+            )}
+
+            {/* ===================================================== HOW IT WORKS */}
+            {view === "how" && (
+              <div className="space-y-10">
+                <section>
+                  <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                    From prompt to pixels in six stages
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
+                    A Stable Diffusion 1.5 pipeline, distilled, quantised and wrapped in classical
+                    computer vision.
+                  </p>
+                  <ol className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {PIPELINE.map((p, i) => (
+                      <li key={p[0]} className="darkroom-glass relative rounded-3xl p-6">
+                        <span className="font-display text-sm font-semibold text-darkroom-violet">
+                          Stage {i + 1}
                         </span>
+                        <h3 className="mt-2 font-display text-xl font-semibold">{p[0]}</h3>
+                        <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                          {p[1]}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+
+                <section>
+                  <h2 className="font-display text-2xl font-semibold">Five optimisations</h2>
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {OPTIMISATIONS.map((o) => (
+                      <div key={o[0]} className="darkroom-glass rounded-3xl p-6">
+                        <h3 className="font-display text-lg font-semibold">{o[0]}</h3>
+                        <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                          {o[1]}
+                        </p>
+                        <p className="mt-4 font-display text-lg font-semibold text-darkroom-coral">
+                          {o[2]}
+                        </p>
                       </div>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className={`h-full ${entry.active ? "darkroom-gradient" : "bg-darkroom-dim"}`}
-                          style={{ width: `${Math.min(100, ((entry.mem ?? 0) / 6500) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {raceState === "done" && raceTimes && (
-                <div className="mt-3 rounded-lg border border-darkroom-teal/20 bg-darkroom-teal/10 p-2.5 text-center text-[10px] text-darkroom-teal">
-                  <span className="font-semibold">
-                    {(raceTimes.baseline / Math.max(0.01, raceTimes.current)).toFixed(1)}× faster
-                  </span>{" "}
-                  with{" "}
-                  <span className="font-semibold">
-                    {((raceMem?.baseline ?? 1) / Math.max(1, raceMem?.current ?? 1)).toFixed(1)}×
-                    less memory
-                  </span>
-                </div>
-              )}
-              <Button
-                className="darkroom-active mt-3 h-9 w-full gap-2 rounded-lg text-[11px]"
-                onClick={runRace}
-                disabled={raceState === "running"}
-              >
-                <Play className="h-3.5 w-3.5" />
-                {raceState === "running" ? "Race in progress…" : "Start the race"}
-              </Button>
-              {raceState === "running" && (
-                <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
-                  <LoaderCircle className="h-3 w-3 animate-spin" />
-                  Current tier first, baseline second
-                </div>
-              )}
-              {raceError && (
-                <div className="mt-2 rounded-lg border border-darkroom-coral/25 bg-darkroom-coral/10 p-2.5 text-[10px] text-darkroom-coral">
-                  {raceError}
-                </div>
-              )}
-              {connection !== "live" && (
-                <div className="mt-2 text-center text-[9px] text-muted-foreground">
-                  Demo timings from the tier table. Connect a server to race for real.
-                </div>
-              )}
-            </section>
+                </section>
 
-            <section
-              className="darkroom-sheet darkroom-glass darkroom-surface min-w-[min(84vw,320px)] p-4 lg:min-w-0 lg:p-5"
-              aria-label="Quality versus cost chart"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-darkroom-violet" />
-                  <h2 className="font-display text-sm font-semibold">Quality vs. cost</h2>
-                </div>
-                <span className="text-[8px] uppercase tracking-[.13em] text-muted-foreground">
-                  LOG LATENCY
-                </span>
-              </div>
-              <div className="mt-3 h-[190px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 6, right: 8, bottom: 6, left: 0 }}>
-                    <CartesianGrid stroke="var(--darkroom-panel-edge)" strokeDasharray="3 5" />
-                    <XAxis
-                      dataKey="latency"
-                      type="number"
-                      scale="log"
-                      domain={[
-                        Math.max(10, Math.min(...chartData.map((d) => d.latency)) / 1.8),
-                        Math.max(...chartData.map((d) => d.latency)) * 1.8,
-                      ]}
-                      tick={{ fill: "var(--darkroom-dim)", fontSize: 8 }}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(value < 1000 ? 2 : 1)}s`}
-                      ticks={[50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter(
-                        (v) =>
-                          v >= Math.min(...chartData.map((d) => d.latency)) / 1.8 &&
-                          v <= Math.max(...chartData.map((d) => d.latency)) * 1.8,
-                      )}
-                      axisLine={{ stroke: "var(--darkroom-panel-edge)" }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      dataKey="clip"
-                      type="number"
-                      domain={[
-                        Math.floor((Math.min(...chartData.map((d) => d.clip)) - 0.006) * 100) / 100,
-                        Math.ceil((Math.max(...chartData.map((d) => d.clip)) + 0.006) * 100) / 100,
-                      ]}
-                      tick={{ fill: "var(--darkroom-dim)", fontSize: 8 }}
-                      tickFormatter={(value) => value.toFixed(2)}
-                      axisLine={false}
-                      tickLine={false}
-                      width={30}
-                    />
-                    <Tooltip
-                      cursor={{ strokeDasharray: "3 3", stroke: "var(--darkroom-panel-edge)" }}
-                      content={({ active, payload }) =>
-                        active && payload?.[0]?.payload ? (
-                          <div className="rounded-lg border border-darkroom-panel-edge bg-darkroom-canvas/95 px-2.5 py-2 text-[9px] shadow-xl">
-                            <div className="font-medium">
-                              {TIER_LABEL[payload[0].payload.tier as TierKey]}
-                            </div>
-                            <div className="mt-1 text-muted-foreground">
-                              {payload[0].payload.latency} ms · {payload[0].payload.clip} CLIP
-                            </div>
-                          </div>
-                        ) : null
-                      }
-                    />
-                    <Scatter
-                      data={chartData}
-                      dataKey="clip"
-                      shape={(props: {
-                        cx?: number;
-                        cy?: number;
-                        payload?: { tier?: string; memory?: number; fill?: string };
-                      }) => {
-                        const radius = 5 + Math.sqrt(props.payload?.memory ?? 0) / 10;
-                        const selected = props.payload?.tier === activeTier;
-                        return (
-                          <circle
-                            cx={props.cx}
-                            cy={props.cy}
-                            r={selected ? radius + 2 : radius}
-                            fill={props.payload?.fill}
-                            fillOpacity={selected ? 0.95 : 0.7}
-                            stroke={selected ? "var(--foreground)" : "transparent"}
-                            strokeWidth={selected ? 1.5 : 0}
-                          />
-                        );
-                      }}
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-2 grid grid-cols-[1.2fr_.8fr_.7fr] border-b border-darkroom-panel-edge pb-2 text-[8px] uppercase tracking-[.12em] text-muted-foreground">
-                <span>Tier</span>
-                <span className="text-right">Latency</span>
-                <span className="text-right">CLIP</span>
-              </div>
-              <div className="mt-1 space-y-0.5">
-                {chartData.map((row) => (
-                  <div
-                    key={row.tier}
-                    className={`grid grid-cols-[1.2fr_.8fr_.7fr] items-center rounded py-1.5 text-[9px] ${row.tier === activeTier ? "bg-darkroom-coral/10 text-foreground" : "text-muted-foreground"}`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <i className="h-1.5 w-1.5 rounded-full" style={{ background: row.fill }} />
-                      {TIER_LABEL[row.tier as TierKey]}
-                    </span>
-                    <span className="text-right tabular-nums">
-                      {row.latency.toLocaleString()} ms
-                    </span>
-                    <span className="text-right tabular-nums">{row.clip.toFixed(3)}</span>
+                <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="darkroom-glass rounded-3xl p-6">
+                    <h2 className="font-display text-2xl font-semibold">Adapts to the device</h2>
+                    <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                      The app reads the device's memory and picks the best tier that fits. If you
+                      force a tier that doesn't fit, it steps down and says why. If the GPU still
+                      runs out of memory, the server retries on the next lighter tier.
+                    </p>
+                    <ul className="mt-4 space-y-2 text-base">
+                      <li>
+                        <span className="font-semibold">Budget phone</span>{" "}
+                        <span className="text-muted-foreground">→ Lite</span>
+                      </li>
+                      <li>
+                        <span className="font-semibold">Mid-range</span>{" "}
+                        <span className="text-muted-foreground">→ Balanced</span>
+                      </li>
+                      <li>
+                        <span className="font-semibold">Flagship</span>{" "}
+                        <span className="text-muted-foreground">→ Quality</span>
+                      </li>
+                    </ul>
                   </div>
-                ))}
+                  <div className="darkroom-glass rounded-3xl p-6">
+                    <h2 className="font-display text-2xl font-semibold">Checks its own work</h2>
+                    <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                      Each prompt is parsed into objects, colours and positions ("red cube", "left
+                      of"). OWL-ViT looks for every object and the boxes are checked against the
+                      relation. A failed check triggers one retry with a new seed.
+                    </p>
+                    <p className="mt-4 text-base">
+                      Weakest point, honestly: spatial relations. Relation accuracy is 0.19–0.31 for
+                      every tier, including the full model.
+                    </p>
+                  </div>
+                </section>
               </div>
-            </section>
+            )}
+          </motion.main>
+        </AnimatePresence>
 
-            <section
-              className="darkroom-sheet darkroom-glass darkroom-surface min-w-[min(84vw,320px)] p-4 lg:min-w-0 lg:p-5"
-              aria-label="Recent generations"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-darkroom-amber" />
-                  <h2 className="font-display text-sm font-semibold">Recent frames</h2>
-                </div>
-                <span className="text-[9px] text-muted-foreground">{history.length} / 12</span>
-              </div>
-              {history.length ? (
-                <div className="darkroom-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-4">
-                  {history.map((entry) => (
-                    <Button
-                      key={entry.id}
-                      variant="ghost"
-                      className="group h-auto min-w-[70px] flex-col items-start gap-1 p-0 text-left"
-                      onClick={() => applyHistory(entry)}
-                    >
-                      <div className="relative aspect-square w-[70px] overflow-hidden rounded-lg border border-darkroom-panel-edge">
-                        <img
-                          src={entry.image}
-                          alt={entry.prompt}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      </div>
-                      <span className="w-[70px] truncate text-[8px] text-muted-foreground">
-                        {entry.prompt}
-                      </span>
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 flex h-24 flex-col items-center justify-center rounded-xl border border-dashed border-darkroom-panel-edge text-center">
-                  <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
-                  <span className="mt-2 text-[10px] text-muted-foreground">
-                    Generated images will gather here
-                  </span>
-                </div>
-              )}
-            </section>
-          </div>
-        </main>
-
-        <footer className="border-t border-darkroom-panel-edge py-5 text-center text-[9px] text-muted-foreground">
-          Images come from our own optimised diffusion pipeline, not a third-party API.
+        <footer className="mt-16 border-t border-darkroom-panel-edge pt-6 text-sm text-muted-foreground">
+          Images come from our own optimised diffusion pipeline, not a third-party image API.
+          Computer Vision Hackathon 2026 · P3.
         </footer>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="darkroom-glass max-w-md border-darkroom-panel-edge bg-darkroom-canvas text-foreground sm:rounded-2xl">
+        <DialogContent className="max-w-lg border-darkroom-panel-edge bg-darkroom-canvas text-foreground sm:rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg">Image server</DialogTitle>
-            <DialogDescription className="text-left text-xs text-muted-foreground">
-              Connect your optimized diffusion pipeline. Leave this blank to use the clearly
-              labelled local demo.
+            <DialogTitle className="font-display text-2xl">Model server</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              Paste the WebSocket address of your model server. Leave it empty to stay in demo mode.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <label
-              className="text-[10px] uppercase tracking-[.14em] text-muted-foreground"
-              htmlFor="darkroom-url"
-            >
-              WebSocket URL
-            </label>
-            <input
-              id="darkroom-url"
-              value={urlDraft}
-              onChange={(event) => setUrlDraft(event.target.value)}
-              placeholder="ws://localhost:8000/ws"
-              className="h-10 w-full rounded-lg border border-darkroom-panel-edge bg-darkroom-canvas px-3 text-sm outline-none focus:border-darkroom-violet"
-            />
-            <div className="rounded-lg border border-darkroom-panel-edge bg-darkroom-panel p-3 text-[10px] leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">Connection status:</span>{" "}
-              {connection === "live"
-                ? `Live · ${healthDevice || DEVICE_LABEL[resolvedDevice]}`
-                : connection === "unreachable"
-                  ? `Unreachable${statusMessage ? ` · ${statusMessage}` : ""}`
-                  : connection === "connecting"
-                    ? "Checking /health and /tiers…"
-                    : "Demo mode — not model output"}
-              <div className="mt-1">The server URL is saved on this device.</div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-2">
+          <input
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            placeholder="wss://….trycloudflare.com/ws"
+            className="h-12 w-full rounded-xl border border-darkroom-panel-edge bg-darkroom-panel px-4 text-base outline-none focus:border-darkroom-violet"
+            aria-label="Server WebSocket URL"
+          />
+          <p className="text-sm text-muted-foreground">
+            Status:{" "}
+            {isLive
+              ? `connected${healthDevice ? ` to ${healthDevice}` : ""}`
+              : connection === "unreachable"
+                ? `unreachable${statusMessage ? ` (${statusMessage})` : ""}`
+                : connection === "connecting"
+                  ? "checking…"
+                  : "demo mode"}
+          </p>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               className="border-darkroom-panel-edge"
@@ -1951,12 +2016,142 @@ function Darkroom() {
               Use demo mode
             </Button>
             <Button className="darkroom-active" onClick={() => closeServer(urlDraft.trim())}>
-              <Link2 className="h-3.5 w-3.5" />
+              <Link2 className="h-4 w-4" />
               Connect
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+const ABLATION: [string, string, string, string][] = [
+  [
+    "50 → 4 steps (LCM)",
+    "31.8 s → 0.40 s",
+    "0.308 → 0.301",
+    "the biggest single win; also removes classifier-free guidance",
+  ],
+  ["4 → 8 steps", "575 → 957 ms", "0.297 → 0.293", "no measurable gain, so Balanced stays at 4"],
+  ["Full VAE → TAESD", "577 → 400 ms", "0.297 → 0.296", "31% faster for free"],
+  [
+    "FP16 → INT8 UNet",
+    "400 → 537 ms",
+    "0.296 → 0.294",
+    "half the weights; slower on a T4 without INT8 kernels",
+  ],
+  ["512 → 384 px", "416 → 351 ms", "0.299 → 0.293", "faster, but softer detail"],
+  ["Post-processing on", "+ OpenCV chain", "unchanged", "clipped pixels 1.31% → 0.05%"],
+];
+
+const PIPELINE: [string, string][] = [
+  [
+    "Prompt encoding",
+    "The CLIP text encoder turns the prompt into 77 embedding vectors that condition every denoising step.",
+  ],
+  [
+    "Denoising",
+    "A UNet with LCM-LoRA fused in removes noise from a 64×64 latent in 3–8 steps instead of 50, without a guidance pass.",
+  ],
+  [
+    "Latent decode",
+    "The tiny TAESD decoder (about 1M parameters) turns the latent into pixels, and also streams a preview of every step.",
+  ],
+  [
+    "Classical CV",
+    "Lanczos upscaling, gray-world white balance, CLAHE on luminance and sharpening only along detected edges.",
+  ],
+  [
+    "Quality check",
+    "Sharpness, clipped pixels and an FFT test for the 8-pixel checkerboard decoders can leave; problems are corrected.",
+  ],
+  [
+    "Prompt check",
+    "OWL-ViT finds each object named in the prompt and the boxes are tested against the requested positions.",
+  ],
+];
+
+const OPTIMISATIONS: [string, string, string][] = [
+  [
+    "Fewer sampling steps",
+    "Latent consistency distillation (LCM-LoRA) fused into the UNet.",
+    "50 → 3–8 steps",
+  ],
+  [
+    "No guidance pass",
+    "The distilled model doesn't need classifier-free guidance, so each step is one UNet pass instead of two.",
+    "2× per step",
+  ],
+  ["Half precision", "FP32 → FP16 for every model.", "4.27 → 2.13 GB"],
+  [
+    "INT8 weights",
+    "Weight-only INT8 quantisation of the UNet for the Lite tier (optimum-quanto).",
+    "2.13 → 1.11 GB",
+  ],
+  ["Tiny decoder", "TAESD replaces the 50M-parameter VAE decoder.", "−31% generation time"],
+  [
+    "Lower resolution",
+    "Lite generates at 384 px and upscales with classical CV.",
+    "−16% generation time",
+  ],
+];
+
+function BigStat({
+  label,
+  value,
+  note,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="darkroom-glass rounded-2xl p-4 sm:p-5">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div
+        className={`mt-1.5 font-display text-2xl font-semibold tabular-nums sm:text-3xl ${accent ? "text-darkroom-coral" : ""}`}
+      >
+        {value}
+      </div>
+      {note && <div className="mt-1 text-sm text-muted-foreground">{note}</div>}
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  icon: Icon,
+  hint,
+  children,
+}: {
+  title: string;
+  icon: typeof Activity;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="darkroom-glass rounded-3xl p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
+          <Icon className="h-5 w-5 text-darkroom-violet" />
+          {title}
+        </h2>
+        {hint && (
+          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2 mt-4 text-sm font-medium text-muted-foreground first:mt-0">{children}</div>
   );
 }

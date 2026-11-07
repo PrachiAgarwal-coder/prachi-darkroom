@@ -494,7 +494,8 @@ DARKROOM_CUSTOM_LORA=../lora/coco python ../eval/evaluate.py --team T01 --usns "
 
 | Name | USN | Responsibility |
 |---|---|---|
-| | | |
-| | | |
-| | | |
-| | | |
+| _name_ | 1RUA24CSE0305 | _part they owned_ |
+| _name_ | 1RUA24CSE247 | _part they owned_ |
+| _name_ | 1RUA24CSE0253 | _part they owned_ |
+| _name_ | 1RUA24CSE0215 | _part they owned_ |
+| _name_ | 1RUA24CSE280 | _part they owned_ |

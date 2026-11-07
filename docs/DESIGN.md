@@ -2,7 +2,8 @@
 
 > If the organisers gave you a design-doc template, keep its headings and move these sections under them. Every heading the template asks for must exist.
 
-**Team:** _<Team ID>_ · **Members:** _<names + USNs + who owns which part>_
+**Team:** T03 · **Members (USN):** 1RUA24CSE0305, 1RUA24CSE247, 1RUA24CSE0253, 1RUA24CSE0215, 1RUA24CSE280  
+_Names and who owned which part: see the team table in README §18._
 
 ## 1. Problem
 
@@ -55,7 +56,7 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 - **Data:** MS-COCO val2017. There is a deterministic eval subset (`download_coco.py --n 300`) and a disjoint training subset (`--offset 5000`).
 - **Metrics:** CLIP similarity; FID and KID against the real images (KID because FID is biased at a few hundred samples); generation latency (mean, p50, p95), measured after warm-up with CUDA synchronised and previews off; peak GPU memory (`torch.cuda.max_memory_allocated`); model size (bytes of UNet + text encoder + decoder weights, INT8 counted at 1 byte); quality-vs-cost Pareto plot.
 - **Compositional prompts:** 30 prompts with multiple objects, colours and spatial relations (`eval/prompts_compositional.txt`), scored by object recall, relation accuracy and the share of prompts fully satisfied.
-- Results: `eval/results/eval_P3_<TEAM>.md`.
+- Results: `eval/results/eval_P3_T03.md` (copy at the repo root).
 
 ## 8. Ablation study
 

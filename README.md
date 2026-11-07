@@ -162,7 +162,7 @@ The brief asks for at least two optimisation strategies. Darkroom uses five, and
 | 4 | **Latent-space optimisation** | Final and preview decoding through TAESD (~1M parameters) instead of the full VAE (~50M) | Decode time and memory drop sharply |
 | 5 | **Resolution scaling** | Lite generates at 384 px (56% of the latent area of 512 px), then Lanczos upscaling + edge-aware sharpening | Attention cost grows quadratically with latent size |
 
-**Meaningful adaptation.** `eval/train_lora.py` fine-tunes a LoRA (rank 16 on the attention projections) on a COCO training split that never overlaps the evaluation split, and reports validation loss during training. That LoRA is fused together with LCM-LoRA at load time. Its effect is measured as the change in CLIP and FID with and without it.
+**Meaningful adaptation.** The pretrained model is adapted by fusing LCM-LoRA into the UNet, quantising UNet weights to INT8, swapping the VAE decoder for TAESD and giving each tier its own step and resolution schedule. The ablation measures each change separately. A further fine-tuning path is implemented: `eval/train_lora.py` trains a LoRA (rank 16, attention projections) on a COCO split that never overlaps the evaluation split, reporting validation loss, and the server fuses it via `DARKROOM_CUSTOM_LORA`. That training was not run within the hackathon window, so no results are claimed for it.
 
 > **An honest note on INT8.** On a datacentre GPU, weight-only INT8 mainly saves **memory and disk**. Dequantisation can even make it slightly slower. On mobile NPUs with native INT8 kernels it is also faster. We report what we measured.
 
@@ -258,7 +258,7 @@ flowchart LR
 | Model size | Bytes of UNet + text encoder + decoder weights (INT8 tensors counted at their real storage size) |
 | Quality vs cost | Pareto plot of CLIP against latency, marker size = peak memory |
 
-**Data splits.** The evaluation uses COCO val2017 images 0–299 of a fixed shuffle (seed 2026). LoRA training uses images 5000+ of the same shuffle, so the two never overlap.
+**Data splits.** The evaluation uses COCO val2017 images 0–299 of a fixed shuffle (seed 2026). The optional LoRA training split uses images 5000+ of the same shuffle, so the two never overlap.
 
 **Ablation.** Each row changes exactly one factor:
 - steps (1/2/4/8)
@@ -281,6 +281,18 @@ Measured on a **Tesla T4** with `eval/evaluate.py` (fixed seeds, COCO val2017 ca
 \*Peak memory is measured per tier in isolation by `eval/measure_memory.py` (one process per tier, nothing else loaded).
 
 ![Quality vs cost](eval/results/quality_vs_cost.png)
+
+**Real outputs: same prompt, same seed, three tiers** (`eval/make_gallery.py`, Tesla T4)
+
+| Prompt | Baseline (FP32, 50 steps) | Balanced (FP16, 4 steps) | Lite (INT8, 3 steps, 384 px) |
+|---|---|---|---|
+| a cozy cabin in a snowy pine forest at dusk, warm light in the windows | ![](public/gallery/0_baseline.jpg) | ![](public/gallery/0_balanced.jpg) | ![](public/gallery/0_lite.jpg) |
+| a yellow auto rickshaw on a busy street in Mumbai, golden hour | ![](public/gallery/1_baseline.jpg) | ![](public/gallery/1_balanced.jpg) | ![](public/gallery/1_lite.jpg) |
+| a red apple and a green pear on a wooden table, studio lighting | ![](public/gallery/2_baseline.jpg) | ![](public/gallery/2_balanced.jpg) | ![](public/gallery/2_lite.jpg) |
+| a lighthouse on a cliff above a stormy sea, dramatic sky | ![](public/gallery/3_baseline.jpg) | ![](public/gallery/3_balanced.jpg) | ![](public/gallery/3_lite.jpg) |
+
+Baseline took 24–27 s per image here; Balanced and Lite took 0.34–0.42 s. (The first Balanced image includes a one-time 1.4 s CUDA warm-up.)
+
 
 **What the numbers say**
 - **Speed:** Balanced generates in 0.40 s against 31.8 s for the baseline, **79× faster**, while keeping **98% of the baseline's CLIP score** (0.301 vs 0.308). Two effects multiply here: 50 → 4 steps, and no classifier-free guidance (one UNet pass per step instead of two).
@@ -338,7 +350,8 @@ prachi-darkroom/
 ├── eval/
 │   ├── download_coco.py          deterministic COCO subsets (eval and training splits)
 │   ├── evaluate.py               full evaluation, ablation and failure cases
-│   ├── train_lora.py             LoRA adaptation
+│   ├── train_lora.py             LoRA fine-tuning (implemented, not run in the window)
+│   ├── make_gallery.py           same-seed comparison images across tiers
 │   ├── prompts_compositional.txt 30 multi-object prompts
 │   └── results/                  evaluation output (committed)
 ├── notebooks/darkroom_colab.ipynb  one-click run on a free Colab GPU

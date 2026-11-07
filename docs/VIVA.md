@@ -21,7 +21,7 @@
 - **What makes it lightweight?** Five independent switches: LCM consistency distillation (50 → 3–8 steps, and no classifier-free guidance, so one UNet pass per step instead of two), FP16, INT8 UNet weights, the TAESD decoder, and 384 px generation for Lite.
 - **Why exactly 4 steps for Balanced?** Ablation: CLIP 0.277 / 0.293 / 0.297 / 0.293 at 1 / 2 / 4 / 8 steps. It peaks at 4, and 8 steps is 66% slower for nothing.
 - **Is INT8 faster?** Not on a T4: 400 → 537 ms, because quanto dequantises weights on the fly. It halves the UNet and cuts memory; on phone NPUs with native INT8 it is also faster. We report what we measured.
-- **What is the "meaningful adaptation"?** LCM-LoRA fused into the weights, INT8 quantisation, the decoder swap, per-tier schedules, plus our own LoRA fine-tuned on a COCO training split that is disjoint from the evaluation split (see DESIGN §3).
+- **What is the "meaningful adaptation"?** We adapted the pretrained model: LCM-LoRA fused into the weights (consistency distillation), INT8 weight quantisation, the TAESD decoder swap and per-tier step/resolution schedules, each measured in the ablation. Our own LoRA fine-tuning script with a disjoint COCO train split is implemented (`eval/train_lora.py`) but was not run within the 24 hours. Say this plainly if asked.
 
 ### Classical CV
 - **What runs after generation?** Lanczos upscaling, gray-world white balance (gains clamped 0.85–1.18), CLAHE on the L channel in LAB space (so colours don't shift), and an unsharp mask applied only where a Canny edge map is on.

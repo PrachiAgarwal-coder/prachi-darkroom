@@ -1,0 +1,98 @@
+[
+ {
+  "prompt": "a cozy cabin in a snowy pine forest at dusk, warm light in the windows",
+  "seed": 11,
+  "tier": "baseline",
+  "file": "0_baseline.jpg",
+  "gen_ms": 26214.173684999423,
+  "clip": 0.3322049379348755
+ },
+ {
+  "prompt": "a cozy cabin in a snowy pine forest at dusk, warm light in the windows",
+  "seed": 11,
+  "tier": "balanced",
+  "file": "0_balanced.jpg",
+  "gen_ms": 1398.1708649994289,
+  "clip": 0.320589542388916
+ },
+ {
+  "prompt": "a cozy cabin in a snowy pine forest at dusk, warm light in the windows",
+  "seed": 11,
+  "tier": "lite",
+  "file": "0_lite.jpg",
+  "gen_ms": 414.0031519996228,
+  "clip": 0.34657251834869385
+ },
+ {
+  "prompt": "a yellow auto rickshaw on a busy street in Mumbai, golden hour",
+  "seed": 21,
+  "tier": "baseline",
+  "file": "1_baseline.jpg",
+  "gen_ms": 24212.897056000656,
+  "clip": 0.3399418592453003
+ },
+ {
+  "prompt": "a yellow auto rickshaw on a busy street in Mumbai, golden hour",
+  "seed": 21,
+  "tier": "balanced",
+  "file": "1_balanced.jpg",
+  "gen_ms": 390.79480199961836,
+  "clip": 0.3182560205459595
+ },
+ {
+  "prompt": "a yellow auto rickshaw on a busy street in Mumbai, golden hour",
+  "seed": 21,
+  "tier": "lite",
+  "file": "1_lite.jpg",
+  "gen_ms": 336.11619699968287,
+  "clip": 0.30780547857284546
+ },
+ {
+  "prompt": "a red apple and a green pear on a wooden table, studio lighting",
+  "seed": 31,
+  "tier": "baseline",
+  "file": "2_baseline.jpg",
+  "gen_ms": 25782.232324999768,
+  "clip": 0.31143027544021606
+ },
+ {
+  "prompt": "a red apple and a green pear on a wooden table, studio lighting",
+  "seed": 31,
+  "tier": "balanced",
+  "file": "2_balanced.jpg",
+  "gen_ms": 414.5983609992072,
+  "clip": 0.3225652575492859
+ },
+ {
+  "prompt": "a red apple and a green pear on a wooden table, studio lighting",
+  "seed": 31,
+  "tier": "lite",
+  "file": "2_lite.jpg",
+  "gen_ms": 341.1331960001007,
+  "clip": 0.33695122599601746
+ },
+ {
+  "prompt": "a lighthouse on a cliff above a stormy sea, dramatic sky",
+  "seed": 41,
+  "tier": "baseline",
+  "file": "3_baseline.jpg",
+  "gen_ms": 27405.46381899958,
+  "clip": 0.3321928083896637
+ },
+ {
+  "prompt": "a lighthouse on a cliff above a stormy sea, dramatic sky",
+  "seed": 41,
+  "tier": "balanced",
+  "file": "3_balanced.jpg",
+  "gen_ms": 418.9770899997711,
+  "clip": 0.3308677077293396
+ },
+ {
+  "prompt": "a lighthouse on a cliff above a stormy sea, dramatic sky",
+  "seed": 41,
+  "tier": "lite",
+  "file": "3_lite.jpg",
+  "gen_ms": 353.2457890000842,
+  "clip": 0.292784184217453
+ }
+]

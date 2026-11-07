@@ -951,6 +951,11 @@ function Darkroom() {
         : "—";
 
   const [view, setView] = useState<"studio" | "bench" | "how">("studio");
+  const [slide, setSlide] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setSlide((n) => (n + 1) % GALLERY.length), 4500);
+    return () => window.clearInterval(id);
+  }, []);
   const prevJob = useRef(jobState);
   useEffect(() => {
     const was = prevJob.current;
@@ -1204,20 +1209,47 @@ function Darkroom() {
                             ))}
                         </>
                       ) : (
-                        <div className="absolute inset-0 grid place-items-center p-8 text-center">
+                        <div className="absolute inset-0 grid place-items-end p-6 text-center sm:p-8">
                           <div className="darkroom-latent-idle absolute inset-[-10%]" aria-hidden />
-                          <div className="darkroom-grain-live opacity-20" aria-hidden />
+                          {!busy && (
+                            <AnimatePresence mode="popLayout">
+                              <motion.img
+                                key={slide}
+                                src={`/gallery/${slide}_balanced.jpg`}
+                                alt={`Real output: ${GALLERY[slide]?.prompt ?? ""}`}
+                                initial={{ opacity: 0, scale: 1.08, filter: "blur(16px)" }}
+                                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.4, ease: [0.2, 0.8, 0.2, 1] }}
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                            </AnimatePresence>
+                          )}
+                          {!busy && (
+                            <>
+                              <div
+                                className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/50 to-transparent"
+                                aria-hidden
+                              />
+                              <span className="absolute left-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                                Real output · Balanced tier ·{" "}
+                                {((GALLERY[slide]?.ms.balanced ?? 400) / 1000).toFixed(2)} s
+                              </span>
+                            </>
+                          )}
                           <div className="relative">
-                            <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
-                              <Sparkles className="h-7 w-7 text-darkroom-violet" />
-                            </div>
+                            {busy && (
+                              <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
+                                <Sparkles className="h-7 w-7 text-darkroom-violet" />
+                              </div>
+                            )}
                             <p className="font-display text-2xl font-semibold sm:text-3xl">
-                              {busy ? "Forming from noise…" : "Describe a scene."}
+                              {busy ? "Forming from noise…" : "Your turn. Describe a scene."}
                             </p>
                             <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
                               {busy
                                 ? "The first frames arrive in a moment."
-                                : "It will form out of noise in a few steps. Try one of the examples below."}
+                                : "A real image from our Balanced tier. Press Generate to make your own."}
                             </p>
                           </div>
                         </div>
@@ -1760,6 +1792,68 @@ function Darkroom() {
                 </section>
 
                 <section className="darkroom-glass rounded-3xl p-5 sm:p-7">
+                  <h2 className="font-display text-2xl font-semibold">
+                    Same prompt, same seed, three tiers
+                  </h2>
+                  <p className="mt-1 text-base text-muted-foreground">
+                    Real outputs from our pipeline on a Tesla T4. Hover to compare detail.
+                  </p>
+                  <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+                    {(
+                      [
+                        ["baseline", "Baseline", "FP32 · 50 steps"],
+                        ["balanced", "Balanced", "FP16 · 4 steps"],
+                        ["lite", "Lite", "INT8 · 3 steps · 384 px"],
+                      ] as const
+                    ).map(([k, name, sub]) => (
+                      <div key={k} className="pb-1">
+                        <div
+                          className={`font-display text-base font-semibold sm:text-lg ${k === "baseline" ? "" : "text-darkroom-coral"}`}
+                        >
+                          {name}
+                        </div>
+                        <div className="text-xs text-muted-foreground sm:text-sm">{sub}</div>
+                      </div>
+                    ))}
+                    {GALLERY.map((g, i) =>
+                      (["baseline", "balanced", "lite"] as const)
+                        .map((k, j) => (
+                          <motion.figure
+                            key={`${i}-${k}`}
+                            initial={{ opacity: 0, y: 16 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: j * 0.08, duration: 0.5 }}
+                            className="group relative overflow-hidden rounded-xl border border-darkroom-panel-edge sm:rounded-2xl"
+                          >
+                            <img
+                              src={`/gallery/${i}_${k}.jpg`}
+                              alt={`${k} output: ${g.prompt}`}
+                              loading="lazy"
+                              className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                            <figcaption className="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-medium tabular-nums text-white backdrop-blur sm:bottom-2.5 sm:left-2.5 sm:px-2.5 sm:py-1 sm:text-xs">
+                              {(g.ms[k] / 1000).toFixed(g.ms[k] < 10000 ? 2 : 1)} s
+                            </figcaption>
+                          </motion.figure>
+                        ))
+                        .concat(
+                          <p
+                            key={`p-${i}`}
+                            className="col-span-3 -mt-1 mb-2 text-sm text-muted-foreground sm:mb-3"
+                          >
+                            “{g.prompt}”
+                          </p>,
+                        ),
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Times are per image as measured. The first Balanced image (1.40 s) includes a
+                    one-time CUDA warm-up; the Balanced average over 100 prompts is 0.40 s.
+                  </p>
+                </section>
+
+                <section className="darkroom-glass rounded-3xl p-5 sm:p-7">
                   <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                       <h2 className="font-display text-2xl font-semibold">The race</h2>
@@ -2162,6 +2256,26 @@ function Darkroom() {
     </div>
   );
 }
+
+// Real model outputs from eval/make_gallery.py (same prompt and seed on each tier, Tesla T4).
+const GALLERY: { prompt: string; ms: Record<"baseline" | "balanced" | "lite", number> }[] = [
+  {
+    prompt: "a cozy cabin in a snowy pine forest at dusk, warm light in the windows",
+    ms: { baseline: 26214, balanced: 1398, lite: 414 },
+  },
+  {
+    prompt: "a yellow auto rickshaw on a busy street in Mumbai, golden hour",
+    ms: { baseline: 24213, balanced: 391, lite: 336 },
+  },
+  {
+    prompt: "a red apple and a green pear on a wooden table, studio lighting",
+    ms: { baseline: 25782, balanced: 415, lite: 341 },
+  },
+  {
+    prompt: "a lighthouse on a cliff above a stormy sea, dramatic sky",
+    ms: { baseline: 27405, balanced: 419, lite: 353 },
+  },
+];
 
 const ABLATION: [string, string, string, string][] = [
   [

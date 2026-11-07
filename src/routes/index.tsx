@@ -327,7 +327,7 @@ function Metric({
 }
 
 function Darkroom() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(SUGGESTIONS[1] ?? "");
   const [requestedTier, setRequestedTier] = useState<TierKey | "adaptive">("adaptive");
   const [device, setDevice] = useState<DeviceKey>("auto");
   const [memory, setMemory] = useState(6);
@@ -763,12 +763,11 @@ function Darkroom() {
   const submit = useCallback(
     (event?: FormEvent) => {
       event?.preventDefault();
-      if (!prompt.trim()) {
-        setPrompt("a red cube to the left of a blue sphere on a wooden table at sunset");
-        return;
-      }
+      // an empty box generates the first example instead of silently doing nothing
+      const text = prompt.trim() || SUGGESTIONS[0] || "";
+      if (!prompt.trim()) setPrompt(text);
       retryRef.current = false;
-      beginGeneration(prompt.trim());
+      beginGeneration(text);
     },
     [beginGeneration, prompt],
   );
@@ -1622,7 +1621,7 @@ function Darkroom() {
                     </div>
                   </Panel>
 
-                  <Panel title="Classical post-processing" icon={WandSparkles}>
+                  <Panel title="Classical post-processing" icon={WandSparkles} defaultOpen={false}>
                     {(
                       [
                         ["contrast", "Adaptive contrast", "CLAHE on luminance"],
@@ -2250,12 +2249,16 @@ function Panel({
   icon: Icon,
   hint,
   children,
+  defaultOpen = true,
 }: {
   title: string;
   icon: typeof Activity;
   hint?: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  // collapsible on phones to shorten the scroll; always open on large screens
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <motion.section
       initial={{ opacity: 0, x: 18 }}
@@ -2263,18 +2266,28 @@ function Panel({
       transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
       className="darkroom-glass rounded-3xl p-5"
     >
-      <div className="mb-3 flex items-center justify-between">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between text-left lg:pointer-events-none"
+      >
         <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
           <Icon className="h-5 w-5 text-darkroom-violet" />
           {title}
         </h2>
-        {hint && (
-          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
-            {hint}
-          </span>
-        )}
-      </div>
-      {children}
+        <span className="flex items-center gap-2">
+          {hint && (
+            <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {hint}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-5 w-5 text-muted-foreground transition-transform lg:hidden ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+      <div className={`${open ? "mt-3 block" : "hidden"} lg:mt-3 lg:block`}>{children}</div>
     </motion.section>
   );
 }

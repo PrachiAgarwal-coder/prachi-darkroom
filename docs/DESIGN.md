@@ -1,6 +1,5 @@
 # Design document — Darkroom (P3: Resource-Efficient Text-to-Image Generation for Mobile Devices)
 
-> If the organisers gave you a design-doc template, keep its headings and move these sections under them. Every heading the template asks for must exist.
 
 **Team:** T03 · **Members (USN):** 1RUA24CSE0305, 1RUA24CSE247, 1RUA24CSE0253, 1RUA24CSE0215, 1RUA24CSE280  
 _Names and who owned which part: see the team table in README §18._

@@ -37,14 +37,14 @@ _**Tiers were evaluated on different numbers of images** (Baseline 50, Quality 1
 
 ## 4. Peak memory consumption
 
-**Not yet isolated:** these peaks include every tier and the scorer models loaded in the same process. Run `eval/measure_memory.py` to replace them with per-tier measurements.
+Measured in isolation (`eval/measure_memory.py`): one process per tier, loading only that tier's weights and no scorer models, so each number is what a device running that tier needs.
 
 | Tier | Peak GPU memory | Reduction |
 |---|---|---|
-| Baseline | 8756 MB | 1.0× |
-| Quality | 9438 MB | 0.9× |
-| Balanced | 9299 MB | 0.9× |
-| Lite | 9491 MB | 0.9× |
+| Baseline | 5111 MB | 1.0× |
+| Quality | 2810 MB | 1.8× |
+| Balanced | 2168 MB | 2.4× |
+| Lite | 1276 MB | 4.0× |
 
 ## 5. Model size
 
@@ -61,10 +61,10 @@ _**Tiers were evaluated on different numbers of images** (Baseline 50, Quality 1
 
 | Tier | CLIP | FID | Latency | Peak memory | Size |
 |---|---|---|---|---|---|
-| Baseline | 0.308 | 261.1 | 31815 ms | 8756 MB | 4265 MB |
-| Quality | 0.299 | 213.3 | 951 ms | 9438 MB | 2132 MB |
-| Balanced | 0.301 | 212.0 | 402 ms | 9299 MB | 1970 MB |
-| Lite | 0.293 | 223.7 | 348 ms | 9491 MB | 1112 MB |
+| Baseline | 0.308 | 261.1 | 31815 ms | 5111 MB | 4265 MB |
+| Quality | 0.299 | 213.3 | 951 ms | 2810 MB | 2132 MB |
+| Balanced | 0.301 | 212.0 | 402 ms | 2168 MB | 1970 MB |
+| Lite | 0.293 | 223.7 | 348 ms | 1276 MB | 1112 MB |
 
 ## 7. Semantic consistency on compositional prompts
 

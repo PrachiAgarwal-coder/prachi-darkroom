@@ -2,7 +2,7 @@
 ### Resource-efficient text-to-image generation for mobile devices
 **Computer Vision Hackathon 2026 · Problem Statement P3**
 
-Darkroom turns a natural-language prompt into an image in a few denoising steps, sized to fit the memory budget of the phone it is generating for. It starts from Stable Diffusion 1.5 and applies five optimisations: consistency distillation, reduced precision, INT8 weight quantisation, a distilled latent decoder and resolution scaling. On a T4 these make generation **79× faster** (31.8 s → 0.40 s) while keeping 98% of the baseline's CLIP score, and shrink the model **3.8×** (4.27 GB → 1.11 GB). The measured numbers are in §10 and the evaluation report. A classical computer-vision stage corrects colour, contrast and artifacts. An open-vocabulary detector then checks that the image actually contains the objects, colours and spatial relations the prompt asked for.
+Darkroom turns a natural-language prompt into an image in a few denoising steps, sized to fit the memory budget of the phone it is generating for. It starts from Stable Diffusion 1.5 and applies five optimisations: consistency distillation, reduced precision, INT8 weight quantisation, a distilled latent decoder and resolution scaling. On a T4 these make generation **79× faster** (31.8 s → 0.40 s) while keeping 98% of the baseline's CLIP score, cut peak memory **4×** (5.1 GB → 1.28 GB) and shrink the model **3.8×** (4.27 GB → 1.11 GB). The measured numbers are in §10 and the evaluation report. A classical computer-vision stage corrects colour, contrast and artifacts. An open-vocabulary detector then checks that the image actually contains the objects, colours and spatial relations the prompt asked for.
 
 | | |
 |---|---|
@@ -272,10 +272,10 @@ Measured on a **Tesla T4** with `eval/evaluate.py` (fixed seeds, COCO val2017 ca
 
 | Tier | Steps | CLIP ↑ | KID×1000 ↓ | Generation latency | Speed-up | Model size | Peak memory* | Prompts fully satisfied |
 |---|---|---|---|---|---|---|---|---|
-| Baseline (FP32, CFG) | 50 | **0.308** | **1.71** | 31.8 s | 1.0× | 4,265 MB | see report §4 | **0.37** |
-| Quality | 8 | 0.299 | 12.18 | 0.95 s | **33×** | 2,132 MB | see report §4 | 0.27 |
-| Balanced | 4 | 0.301 | 7.61 | 0.40 s | **79×** | 1,970 MB | see report §4 | 0.27 |
-| Lite (INT8, 384 px) | 3 | 0.293 | 12.66 | 0.35 s | **91×** | **1,112 MB** | see report §4 | 0.23 |
+| Baseline (FP32, CFG) | 50 | **0.308** | **1.71** | 31.8 s | 1.0× | 4,265 MB | 5,111 MB | **0.37** |
+| Quality | 8 | 0.299 | 12.18 | 0.95 s | **33×** | 2,132 MB | 2,810 MB (1.8× less) | 0.27 |
+| Balanced | 4 | 0.301 | 7.61 | 0.40 s | **79×** | 1,970 MB | 2,168 MB (2.4× less) | 0.27 |
+| Lite (INT8, 384 px) | 3 | 0.293 | 12.66 | 0.35 s | **91×** | **1,112 MB** | **1,276 MB (4.0× less)** | 0.23 |
 
 \*Peak memory is measured per tier in isolation by `eval/measure_memory.py` (one process per tier, nothing else loaded).
 
@@ -283,6 +283,7 @@ Measured on a **Tesla T4** with `eval/evaluate.py` (fixed seeds, COCO val2017 ca
 
 **What the numbers say**
 - **Speed:** Balanced generates in 0.40 s against 31.8 s for the baseline, **79× faster**, while keeping **98% of the baseline's CLIP score** (0.301 vs 0.308). Two effects multiply here: 50 → 4 steps, and no classifier-free guidance (one UNet pass per step instead of two).
+- **Memory:** measured per tier in isolation, peak GPU memory falls from 5.1 GB (baseline) to 2.8 / 2.2 / **1.28 GB** for Quality / Balanced / Lite. Lite fits a budget phone's ~1.8 GB app budget, Balanced a mid-range phone's ~2.6 GB.
 - **Size:** Lite's weights are **3.8× smaller** than the baseline's (1.11 GB vs 4.27 GB): FP32 → FP16 halves them, and INT8 weight quantisation of the UNet roughly halves the UNet again.
 - **Where quality goes:** distribution-level quality (KID) is clearly worse for the few-step tiers than for the 50-step baseline. This is the known cost of consistency distillation. Balanced has the best KID of the optimised tiers, which is why it is the default for mid-range devices.
 - **Spatial reasoning is the weak point for every tier:** relation accuracy is 0.19–0.31, even for the baseline. That is a limitation of SD 1.5's text conditioning, not something our optimisation introduced. It is the main motivation for the verifier and auto-retry.

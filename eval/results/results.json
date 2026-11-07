@@ -13,7 +13,7 @@
    "denoise_ms": 30838.495105560007,
    "decMs": 957.66684041997,
    "post_ms": 45.29772553998555,
-   "peakMB": 8756.4928,
+   "peakMB": 5111.450624,
    "sharpness": 3064.331253981284,
    "clipped_pct": 0.13031768798828125,
    "fid": 261.128173828125,
@@ -29,7 +29,9 @@
    "decoder": "Full VAE",
    "unet": "SD 1.5 UNet (860M)",
    "sizeMB": 4264.9,
-   "stepMs": 616.7699021112002
+   "stepMs": 616.7699021112002,
+   "resident_weights_mb": 4296.692224,
+   "gen_ms_isolated": 24457.20554199999
   },
   "quality": {
    "n": 100,
@@ -43,7 +45,7 @@
    "denoise_ms": 747.1641914800149,
    "decMs": 194.98398530995473,
    "post_ms": 45.86243314993226,
-   "peakMB": 9437.531648,
+   "peakMB": 2810.4448,
    "sharpness": 4192.3751220968425,
    "clipped_pct": 0.08901596069335938,
    "fid": 213.2871856689453,
@@ -59,7 +61,9 @@
    "decoder": "Full VAE",
    "unet": "SD 1.5 + LCM-LoRA",
    "sizeMB": 2132.5,
-   "stepMs": 93.39552393500186
+   "stepMs": 93.39552393500186,
+   "resident_weights_mb": 2161.4208,
+   "gen_ms_isolated": 905.7775312000216
   },
   "balanced": {
    "n": 100,
@@ -73,7 +77,7 @@
    "denoise_ms": 371.44810362999124,
    "decMs": 21.03436437995697,
    "post_ms": 48.56630123004834,
-   "peakMB": 9298.755584,
+   "peakMB": 2168.193536,
    "sharpness": 4377.108249933207,
    "clipped_pct": 0.14592361450195312,
    "fid": 211.9856719970703,
@@ -89,7 +93,9 @@
    "decoder": "TAESD",
    "unet": "SD 1.5 + LCM-LoRA",
    "sizeMB": 1970.1,
-   "stepMs": 92.86202590749781
+   "stepMs": 92.86202590749781,
+   "resident_weights_mb": 1991.610368,
+   "gen_ms_isolated": 375.7009863999997
   },
   "lite": {
    "n": 100,
@@ -103,7 +109,7 @@
    "denoise_ms": 325.5803506099255,
    "decMs": 12.89480460996856,
    "post_ms": 60.346230069981175,
-   "peakMB": 9491.28192,
+   "peakMB": 1276.474368,
    "sharpness": 1578.85954123217,
    "clipped_pct": 0.2368011474609375,
    "fid": 223.72189331054688,
@@ -119,7 +125,9 @@
    "decoder": "TAESD",
    "unet": "SD 1.5 + LCM-LoRA, INT8",
    "sizeMB": 1111.6,
-   "stepMs": 108.52678353664184
+   "stepMs": 108.52678353664184,
+   "resident_weights_mb": 1137.206784,
+   "gen_ms_isolated": 369.4642077999788
   }
  },
  "ablation": [
@@ -1195,5 +1203,6 @@
    "kind": "wrong spatial relation",
    "file": "/content/prachi-darkroom/eval/results/images/lite_compositional/0029.jpg"
   }
- ]
+ ],
+ "memory_method": "isolated: one process per tier, only that tier's weights loaded, no scorer models"
 }

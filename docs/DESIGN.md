@@ -46,7 +46,7 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 
 ## 6. Adaptive generation and fallback
 
-- **Client side:** device class → memory allowance (budget 1.8 GB, mid 2.6 GB, flagship 4.2 GB). **Adaptive** picks the highest-quality tier whose *measured* peak memory fits. A forced tier that does not fit is downgraded and the UI says why.
+- **Client side:** device class → memory allowance (budget 1.8 GB, mid 2.6 GB, flagship 4.2 GB). **Adaptive** picks the highest-quality tier whose *measured* peak memory fits: Lite 1.28 GB on budget phones, Balanced 2.17 GB on mid-range, Quality 2.81 GB on flagships (peaks measured per tier in isolation on a T4). A forced tier that does not fit is downgraded and the UI says why.
 - **Server side:** CUDA out-of-memory errors are caught; the server frees the cache and retries on the next lighter tier, then reports `tier_used`.
 - **Semantic retry:** if the verifier finds a missing object or a wrong relation, the client regenerates once with a new seed.
 

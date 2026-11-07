@@ -21,7 +21,7 @@ export type TierSpec = {
 };
 
 // Latency, CLIP and size: measured on a Tesla T4 (eval/results/eval_P3_T03.md).
-// peakMB: estimates until eval/measure_memory.py has run; the server's /tiers replaces them.
+// peakMB: measured per tier in isolation (eval/measure_memory.py).
 export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
   baseline: {
     name: "Baseline",
@@ -34,7 +34,7 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     measured: {
       clip: 0.308,
       gen_ms_mean: 31815,
-      peakMB: 6200,
+      peakMB: 5111,
       sizeMB: 4265,
       encMs: 19,
       stepMs: 617,
@@ -52,7 +52,7 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     measured: {
       clip: 0.299,
       gen_ms_mean: 951,
-      peakMB: 2900,
+      peakMB: 2810,
       sizeMB: 2132,
       encMs: 9,
       stepMs: 93,
@@ -70,7 +70,7 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     measured: {
       clip: 0.301,
       gen_ms_mean: 402,
-      peakMB: 2400,
+      peakMB: 2168,
       sizeMB: 1970,
       encMs: 10,
       stepMs: 93,
@@ -88,7 +88,7 @@ export const DEFAULT_TIERS: Record<TierKey, TierSpec> = {
     measured: {
       clip: 0.293,
       gen_ms_mean: 348,
-      peakMB: 1500,
+      peakMB: 1276,
       sizeMB: 1112,
       encMs: 10,
       stepMs: 109,

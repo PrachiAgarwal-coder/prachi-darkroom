@@ -1720,6 +1720,10 @@ function Darkroom() {
                             <dd className="text-right tabular-nums">
                               {(m.sizeMB / 1000).toFixed(2)} GB
                             </dd>
+                            <dt className="text-muted-foreground">Peak memory</dt>
+                            <dd className="text-right tabular-nums">
+                              {(m.peakMB / 1000).toFixed(2)} GB
+                            </dd>
                             <dt className="text-muted-foreground">Decoder</dt>
                             <dd className="text-right">{t.decoder}</dd>
                             <dt className="text-muted-foreground">Resolution</dt>

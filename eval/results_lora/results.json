@@ -1,0 +1,40 @@
+{
+ "device": "Tesla T4 (Kaggle)",
+ "tier": "balanced",
+ "n": 100,
+ "custom_lora": {
+  "rank": 16,
+  "targets": "attention to_q/to_k/to_v/to_out",
+  "steps": 400,
+  "grad_accum": 4,
+  "lr": 0.0001,
+  "train_images": 540,
+  "val_images": 60,
+  "data": "COCO train2017 (disjoint from the val2017 evaluation set)",
+  "fused_weight": 0.8,
+  "val_loss": {
+   "100": 0.1625,
+   "200": 0.1625,
+   "300": 0.1622,
+   "400": 0.1622
+  }
+ },
+ "without_lora": {
+  "clip": 0.30083649277687075,
+  "fid": 211.9856719970703,
+  "kid": 0.007608048617839813,
+  "gen_ms_mean": 402.13829063993217,
+  "peakMB": 2168.193536,
+  "sizeMB": 1970.1,
+  "prompt_pass": 0.26666666666666666
+ },
+ "with_lora": {
+  "clip": 0.3019866208732128,
+  "fid": 212.19036865234375,
+  "kid": 0.0079283332452178,
+  "gen_ms_mean": 411.71802610999976,
+  "peakMB": 2138.1159900000002,
+  "sizeMB": 1970.1,
+  "prompt_pass": 0.3
+ }
+}

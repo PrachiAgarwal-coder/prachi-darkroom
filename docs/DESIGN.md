@@ -19,11 +19,22 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 | Text encoder | CLIP ViT-L/14 text tower (from SD 1.5) | Prompt encoding; shared by every tier |
 | Denoiser | SD 1.5 UNet + **LCM-LoRA fused** | 4–8 steps instead of 50; no classifier-free guidance pass needed (guidance 1.0), which halves the UNet cost per step |
 | Decoder | Full VAE (Quality) / **TAESD** (Balanced, Lite) | TAESD has ~1M decoder params vs ~50M, so decode cost drops sharply |
-| Adaptation | **Our LoRA** (`eval/train_lora.py`) trained on a COCO train split that is disjoint from the evaluation split, then fused together with LCM-LoRA | Moves the output distribution toward natural photos; measured as the change in FID/CLIP with vs without it |
+| Adaptation | **Our LoRA** (`eval/train_lora.py`) trained on a COCO train split that is disjoint from the evaluation split, then fused together with LCM-LoRA | Tested to see whether it moves the output toward natural photos. Measured: no gain beyond noise (see Status), so it is not deployed |
 | Verifier | OWL-ViT B/32 | Finds each prompt object by text query, which enables attribute and relation checks |
 | Scorer | CLIP ViT-B/32 | Text-image cosine similarity (CLIP score) |
 
-**Status:** the training script and the disjoint train split are ready (`eval/train_lora.py`, `download_coco.py --split train`, COCO train2017). Within the 24-hour window we did not run the LoRA training, so all reported results use the LCM-LoRA–adapted model without the custom LoRA. Our adaptation therefore consists of the fused LCM-LoRA, INT8 quantisation, the TAESD decoder swap and the tier-specific schedules, each measured in the ablation.
+**Status: run and measured.** Rank-16 LoRA, 400 steps (grad-accum 4), 540 COCO train2017 images plus 60 for validation, fused at weight 0.8. It was evaluated on the Balanced tier with the same 100 prompts and seeds as the main evaluation.
+
+| Metric | Balanced, without our LoRA | Balanced, with our LoRA |
+|---|---|---|
+| CLIP score ↑ | 0.3008 | 0.3020 |
+| KID ×1000 ↓ | 7.61 | 7.93 |
+| FID ↓ (N=100, indicative only) | 212.0 | 212.2 |
+| Compositional prompts passed ↑ | 27% (8/30) | 30% (9/30) |
+| Mean generation time | 402 ms | 412 ms |
+| Peak memory | 2168 MB | 2138 MB |
+
+Validation loss stayed flat (0.1625 → 0.1622), and every metric difference is within noise at N = 100. SD 1.5's pre-training data already resembles COCO, so a short LoRA has little distribution gap to close. The deployed tiers therefore do not use it. Our adaptation that actually carries the result is the fused LCM-LoRA, INT8 quantisation, the TAESD decoder swap and the tier-specific schedules, each measured in the ablation. Details: `eval/results_lora/README.md`.
 
 ## 4. Optimisation strategies (the brief asks for at least two; we use five)
 

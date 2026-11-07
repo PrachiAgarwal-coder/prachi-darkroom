@@ -4,6 +4,11 @@
 
 Darkroom turns a natural-language prompt into an image in a few denoising steps, sized to fit the memory budget of the phone it is generating for. It starts from Stable Diffusion 1.5 and applies five optimisations: consistency distillation, reduced precision, INT8 weight quantisation, a distilled latent decoder and resolution scaling. On a T4 these make generation **79× faster** (31.8 s → 0.40 s) while keeping 98% of the baseline's CLIP score, cut peak memory **4×** (5.1 GB → 1.28 GB) and shrink the model **3.8×** (4.27 GB → 1.11 GB). The measured numbers are in §10 and the evaluation report. A classical computer-vision stage corrects colour, contrast and artifacts. An open-vocabulary detector then checks that the image actually contains the objects, colours and spatial relations the prompt asked for.
 
+> ### ▶ Try it live, with the real model
+> **[pixel-perfect-snapshot-8751.lovable.app/?server=wss://gets-programmers-wallace-omaha.trycloudflare.com/ws](https://pixel-perfect-snapshot-8751.lovable.app/?server=wss://gets-programmers-wallace-omaha.trycloudflare.com/ws)**
+>
+> This link connects the app to our model server on a T4 GPU. The top-right badge should read **"Live model · cuda"**. The server runs during the judging window. If the badge says "Demo mode", the server is offline; the app still works with labelled previews and measured numbers.
+
 | | |
 |---|---|
 | **Live application** | https://pixel-perfect-snapshot-8751.lovable.app (connects to the model server through `?server=wss://…/ws`; shows a labelled demo mode when no server is attached) |

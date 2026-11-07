@@ -1,7 +1,7 @@
 """Meaningful adaptation: fine-tune a LoRA on the SD 1.5 UNet with a training split
 that never overlaps the evaluation split, then serve it fused together with LCM-LoRA.
 
-    python eval/download_coco.py --n 1000 --offset 5000 --out data/coco_train
+    python eval/download_coco.py --split train --n 600 --out data/coco_train
     python eval/train_lora.py --data data/coco_train --steps 1500 --out lora/coco
     # then serve / evaluate with it:
     DARKROOM_CUSTOM_LORA=lora/coco uvicorn darkroom.server:app ...
@@ -51,6 +51,13 @@ def main():
     ap.add_argument("--accum", type=int, default=4)
     a = ap.parse_args()
 
+    train, val = load_split(a.data)
+    img_dir = Path(a.data) / "images"
+    if len(train) < a.accum or not val:
+        raise SystemExit(f"Not enough training data in {a.data}: {len(train)} train / {len(val)} val rows. "
+                         "Run eval/download_coco.py --split train first.")
+    print(f"train {len(train)} / val {len(val)}")
+
     from diffusers import DDPMScheduler, StableDiffusionPipeline
     from diffusers.utils import convert_state_dict_to_diffusers
     from peft import LoraConfig
@@ -71,9 +78,6 @@ def main():
     lr_at = lambda s: a.lr * min(1, s / 100) * 0.5 * (1 + math.cos(math.pi * s / a.steps))
     scaler = torch.amp.GradScaler("cuda")
 
-    train, val = load_split(a.data)
-    img_dir = Path(a.data) / "images"
-    print(f"train {len(train)} / val {len(val)}")
 
     def loss_on(row, gen=None):
         x = to_tensor(img_dir / row["image"], a.res).unsqueeze(0).to(dev, torch.float16)

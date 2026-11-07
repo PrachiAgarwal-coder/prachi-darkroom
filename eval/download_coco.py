@@ -2,8 +2,8 @@
 
     python eval/download_coco.py --n 300 --out data/coco
 
-For the LoRA training split (disjoint from evaluation):
-    python eval/download_coco.py --n 1000 --offset 5000 --out data/coco_train
+For the LoRA training split (COCO train2017, so it can never overlap the val2017 evaluation set):
+    python eval/download_coco.py --split train --n 600 --out data/coco_train
 
 Writes data/coco/captions.json  -> [{"image": "000000xxxxx.jpg", "caption": "..."}]
 and   data/coco/images/*.jpg   (center-cropped to 512x512 for FID).
@@ -34,18 +34,20 @@ def main():
     ap.add_argument("--n", type=int, default=300)
     ap.add_argument("--out", default="data/coco")
     ap.add_argument("--seed", type=int, default=2026)
+    ap.add_argument("--split", choices=["val", "train"], default="val",
+                    help="val2017 for evaluation; train2017 for LoRA training (disjoint from val2017)")
     ap.add_argument("--offset", type=int, default=0,
                     help="skip this many images first; use it to build a training split that never overlaps the eval split")
     a = ap.parse_args()
     out = Path(a.out)
     (out / "images").mkdir(parents=True, exist_ok=True)
 
-    cap_file = out / "captions_val2017.json"
+    cap_file = out / f"captions_{a.split}2017.json"
     if not cap_file.exists():
         print("Downloading COCO annotations (~240 MB, once)...")
         data = urllib.request.urlopen(ANN).read()
         with zipfile.ZipFile(io.BytesIO(data)) as z:
-            cap_file.write_bytes(z.read("annotations/captions_val2017.json"))
+            cap_file.write_bytes(z.read(f"annotations/captions_{a.split}2017.json"))
     ann = json.loads(cap_file.read_text())
     images = {im["id"]: im for im in ann["images"]}
     first_caption = {}
@@ -55,6 +57,9 @@ def main():
     ids = sorted(first_caption)
     random.Random(a.seed).shuffle(ids)
     ids = ids[a.offset:a.offset + a.n]
+    if not ids:
+        raise SystemExit(f"No images selected: {a.split}2017 has {len(first_caption)} captioned images, "
+                         f"but --offset {a.offset} skips past all of them.")
 
     def fetch(i):
         im = images[i]

@@ -473,7 +473,7 @@ python ../eval/evaluate.py --team T01 --usns "USN1,USN2,USN3,USN4" --coco ../dat
 
 **Optional LoRA adaptation:**
 ```bash
-python ../eval/download_coco.py --n 1000 --offset 5000 --out ../data/coco_train
+python ../eval/download_coco.py --split train --n 600 --out ../data/coco_train
 python ../eval/train_lora.py --data ../data/coco_train --steps 1500 --out ../lora/coco
 DARKROOM_CUSTOM_LORA=../lora/coco python ../eval/evaluate.py --team T01 --usns "..." --out ../eval/results_lora
 ```

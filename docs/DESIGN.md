@@ -23,7 +23,7 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 | Verifier | OWL-ViT B/32 | Finds each prompt object by text query, which enables attribute and relation checks |
 | Scorer | CLIP ViT-B/32 | Text-image cosine similarity (CLIP score) |
 
-**Status:** the training script and the disjoint train split are ready (`eval/train_lora.py`, `download_coco.py --offset 5000`). Within the 24-hour window we did not run the LoRA training, so all reported results use the LCM-LoRA–adapted model without the custom LoRA. Our adaptation therefore consists of the fused LCM-LoRA, INT8 quantisation, the TAESD decoder swap and the tier-specific schedules, each measured in the ablation.
+**Status:** the training script and the disjoint train split are ready (`eval/train_lora.py`, `download_coco.py --split train`, COCO train2017). Within the 24-hour window we did not run the LoRA training, so all reported results use the LCM-LoRA–adapted model without the custom LoRA. Our adaptation therefore consists of the fused LCM-LoRA, INT8 quantisation, the TAESD decoder swap and the tier-specific schedules, each measured in the ablation.
 
 ## 4. Optimisation strategies (the brief asks for at least two; we use five)
 
@@ -52,7 +52,7 @@ We keep the SD 1.5 latent-diffusion architecture and attack the cost in five pla
 
 ## 7. Evaluation protocol
 
-- **Data:** MS-COCO val2017. There is a deterministic eval subset (`download_coco.py --n 300`) and a disjoint training subset (`--offset 5000`).
+- **Data:** MS-COCO val2017. There is a deterministic eval subset (`download_coco.py --n 300`) and a disjoint training subset from COCO train2017 (`--split train`).
 - **Metrics:** CLIP similarity; FID and KID against the real images (KID because FID is biased at a few hundred samples); generation latency (mean, p50, p95), measured after warm-up with CUDA synchronised and previews off; peak GPU memory (`torch.cuda.max_memory_allocated`); model size (bytes of UNet + text encoder + decoder weights, INT8 counted at 1 byte); quality-vs-cost Pareto plot.
 - **Compositional prompts:** 30 prompts with multiple objects, colours and spatial relations (`eval/prompts_compositional.txt`), scored by object recall, relation accuracy and the share of prompts fully satisfied.
 - Results: `eval/results/eval_P3_T03.md` (copy at the repo root).

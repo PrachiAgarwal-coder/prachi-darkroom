@@ -15,6 +15,7 @@ Darkroom turns a natural-language prompt into an image in a few denoising steps,
 | **Model server** | Runs on a GPU via the Colab notebook ("Optional A") with a Cloudflare tunnel; the notebook prints the judges' link |
 | **Evaluation report** | [`eval/results/eval_P3_T03.md`](eval/results/eval_P3_T03.md) |
 | **Design document** | [`docs/DESIGN.md`](docs/DESIGN.md) |
+| **Technical solution report** | [`docs/Technical_Solution_Report_T03.docx`](docs/Technical_Solution_Report_T03.docx) |
 | **Architecture** | [§3 below](#3-system-architecture) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | **Run everything on a free GPU** | [Open the notebook in Colab](https://colab.research.google.com/github/PrachiAgarwal-coder/prachi-darkroom/blob/main/notebooks/darkroom_colab.ipynb) |
 

@@ -322,3 +322,28 @@
 
 .darkroom-ripple { animation: darkroom-ripple 1.2s ease-out infinite; }
 .darkroom-logo-spin { animation: darkroom-spin 12s linear infinite; }
+
+/* idle stage: a slowly drifting "latent" so the canvas never looks dead */
+@keyframes darkroom-latent-drift {
+  0%   { background-position: 0% 0%, 100% 100%, 50% 0%, 0% 100%; }
+  50%  { background-position: 60% 40%, 30% 70%, 80% 60%, 40% 20%; }
+  100% { background-position: 0% 0%, 100% 100%, 50% 0%, 0% 100%; }
+}
+.darkroom-latent-idle {
+  background:
+    radial-gradient(circle at center, oklch(0.61 0.22 282 / 55%), transparent 55%),
+    radial-gradient(circle at center, oklch(0.70 0.19 35 / 45%), transparent 55%),
+    radial-gradient(circle at center, oklch(0.83 0.16 82 / 30%), transparent 50%),
+    radial-gradient(circle at center, oklch(0.75 0.12 190 / 30%), transparent 55%);
+  background-size: 140% 140%, 120% 120%, 110% 110%, 130% 130%;
+  filter: blur(28px) saturate(1.1);
+  animation: darkroom-latent-drift 14s ease-in-out infinite;
+  opacity: .55;
+}
+
+/* lighter effects on small screens so mid-range phones stay smooth */
+@media (max-width: 640px) {
+  .darkroom-aurora { filter: blur(60px); opacity: .4; }
+  .darkroom-latent-idle { filter: blur(20px); }
+  .darkroom-grain-live { display: none; }
+}

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 import {
   Activity,
@@ -62,6 +63,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Toaster } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -133,7 +135,7 @@ const STAGE_LABEL: Record<StageKey, string> = {
   qa: "Quality check",
   verify: "Verify prompt",
 };
-const DEFAULT_POST: PostSettings = { contrast: true, wb: true, sharp: true, upscale: false };
+const DEFAULT_POST: PostSettings = { contrast: true, wb: true, sharp: true, upscale: true }; // matches the server and the evaluation
 const STAGE_TIMING_KEYS: Record<StageKey, keyof Metrics> = {
   encode: "encode_ms",
   denoise: "denoise_ms",
@@ -949,6 +951,26 @@ function Darkroom() {
         : "—";
 
   const [view, setView] = useState<"studio" | "bench" | "how">("studio");
+  const prevJob = useRef(jobState);
+  useEffect(() => {
+    const was = prevJob.current;
+    prevJob.current = jobState;
+    if ((was === "loading" || was === "queued") && jobState === "idle" && result) {
+      const m = result.metrics;
+      const gen = (m.encode_ms + m.denoise_ms + m.decode_ms) / 1000;
+      const speed = tiers.baseline.measured.gen_ms_mean / 1000 / Math.max(0.01, gen);
+      const failed = result.checks.filter((c) => !c.ok).length;
+      toast(`Developed in ${gen.toFixed(2)} s`, {
+        description: `${TIER_LABEL[result.tier]} tier · ${speed.toFixed(0)}× faster than the baseline${
+          result.checks.length
+            ? ` · ${result.checks.length - failed}/${result.checks.length} checks passed`
+            : ""
+        }`,
+        className:
+          "!bg-darkroom-panel !border-darkroom-panel-edge !text-foreground !backdrop-blur-xl !rounded-2xl",
+      });
+    }
+  }, [jobState, result, tiers]);
   const busy = jobState === "loading" || jobState === "queued";
   const isLive = connection === "live";
   const shownImage = result ? result.processed || result.raw : preview;
@@ -961,6 +983,7 @@ function Darkroom() {
     <div className="relative min-h-screen overflow-x-hidden bg-darkroom-canvas text-foreground selection:bg-darkroom-violet/30">
       <div className="darkroom-aurora" aria-hidden />
       <LatentField active={busy} />
+      <Toaster position="bottom-center" theme="dark" />
       <div
         className="pointer-events-none fixed inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_30%,transparent_10%,var(--darkroom-canvas)_95%)] opacity-90"
         aria-hidden
@@ -1182,7 +1205,9 @@ function Darkroom() {
                         </>
                       ) : (
                         <div className="absolute inset-0 grid place-items-center p-8 text-center">
-                          <div>
+                          <div className="darkroom-latent-idle absolute inset-[-10%]" aria-hidden />
+                          <div className="darkroom-grain-live opacity-20" aria-hidden />
+                          <div className="relative">
                             <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
                               <Sparkles className="h-7 w-7 text-darkroom-violet" />
                             </div>

@@ -6,7 +6,7 @@ Darkroom turns a natural-language prompt into an image in a few denoising steps,
 
 | | |
 |---|---|
-| **Live application** | _<paste the published Lovable URL>_ |
+| **Live application** | https://pixel-perfect-snapshot-8751.lovable.app (connects to the model server through `?server=wss://…/ws`; shows a labelled demo mode when no server is attached) |
 | **Model server** | Runs on a GPU via the Colab notebook ("Optional A") with a Cloudflare tunnel; the notebook prints the judges' link |
 | **Evaluation report** | [`eval/results/eval_P3_T03.md`](eval/results/eval_P3_T03.md) |
 | **Design document** | [`docs/DESIGN.md`](docs/DESIGN.md) |

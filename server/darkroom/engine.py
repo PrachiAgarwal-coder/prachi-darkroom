@@ -1,5 +1,6 @@
 """Generation engine: loads every tier once, runs a request, and reports
 per-stage timings, peak memory and model size alongside the image."""
+from pathlib import Path
 import base64
 import copy
 import io
@@ -91,7 +92,12 @@ class Engine:
             fast.scheduler = LCMScheduler.from_config(fast.scheduler.config)
             fast.load_lora_weights(config.LCM_LORA, adapter_name="lcm")
             if config.CUSTOM_LORA:
-                fast.load_lora_weights(config.CUSTOM_LORA, adapter_name="custom")
+                lora_dir = Path(config.CUSTOM_LORA)
+                lora_file = lora_dir / "pytorch_lora_weights.safetensors"
+                if not lora_file.is_file():
+                    raise FileNotFoundError(f"DARKROOM_CUSTOM_LORA is set but {lora_file} does not exist. "
+                                            "Train it first with eval/train_lora.py and check it printed 'Saved LoRA'.")
+                fast.load_lora_weights(str(lora_dir), weight_name=lora_file.name, adapter_name="custom")
                 fast.set_adapters(["lcm", "custom"], adapter_weights=[1.0, 0.8])
             fast.fuse_lora()
             fast.unload_lora_weights()

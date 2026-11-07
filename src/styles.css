@@ -79,7 +79,7 @@
   --darkroom-panel: oklch(0.16 0.009 300 / 72%);
   --darkroom-panel-edge: oklch(0.92 0.005 300 / 11%);
   --darkroom-violet: oklch(0.61 0.22 282);
-  --darkroom-coral: oklch(0.70 0.19 35);
+  --darkroom-coral: oklch(0.7 0.19 35);
   --darkroom-amber: oklch(0.83 0.16 82);
   --darkroom-teal: oklch(0.75 0.13 184);
   --darkroom-success: oklch(0.77 0.15 151);
@@ -167,33 +167,71 @@
 }
 
 @keyframes darkroom-pulse {
-  0%, 100% { opacity: .58; transform: scale(.9); }
-  50% { opacity: 1; transform: scale(1.12); }
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
 }
 
 @keyframes darkroom-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @utility darkroom-glass {
-  background: var(--darkroom-panel);
+  background:
+    radial-gradient(
+      420px circle at var(--mx, -999px) var(--my, -999px),
+      color-mix(in oklab, var(--darkroom-violet) 11%, transparent),
+      transparent 45%
+    ),
+    var(--darkroom-panel);
   border: 1px solid var(--darkroom-panel-edge);
   backdrop-filter: blur(24px) saturate(135%);
+  transition: border-color 0.3s ease;
+  &:hover {
+    border-color: color-mix(in oklab, var(--darkroom-violet) 32%, var(--darkroom-panel-edge));
+  }
 }
 
 @utility darkroom-gradient {
-  background: linear-gradient(112deg, var(--darkroom-violet), var(--darkroom-coral) 58%, var(--darkroom-amber));
+  background: linear-gradient(
+    112deg,
+    var(--darkroom-violet),
+    var(--darkroom-coral) 58%,
+    var(--darkroom-amber)
+  );
 }
 
 @utility darkroom-active {
-  background: linear-gradient(112deg, var(--darkroom-violet), var(--darkroom-coral) 58%, var(--darkroom-amber));
+  background: linear-gradient(
+    112deg,
+    var(--darkroom-violet),
+    var(--darkroom-coral) 58%,
+    var(--darkroom-amber)
+  );
   color: oklch(0.99 0.003 295);
   box-shadow: 0 8px 26px oklch(0.61 0.22 282 / 26%);
 }
 
 @utility darkroom-ring {
-  background: conic-gradient(var(--darkroom-violet) 0deg, var(--darkroom-coral) 210deg, var(--darkroom-amber) 300deg, oklch(0.3 0.01 300) 300deg);
+  background: conic-gradient(
+    var(--darkroom-violet) 0deg,
+    var(--darkroom-coral) 210deg,
+    var(--darkroom-amber) 300deg,
+    oklch(0.3 0.01 300) 300deg
+  );
 }
 
 @utility darkroom-pulse {
@@ -201,149 +239,354 @@
 }
 
 @utility darkroom-rise {
-  animation: darkroom-rise .3s ease-out both;
+  animation: darkroom-rise 0.3s ease-out both;
 }
 
-.darkroom-scrollbar { scrollbar-color: oklch(0.39 0.02 290) transparent; scrollbar-width: thin; }
-.darkroom-range { accent-color: var(--darkroom-coral); }
-.darkroom-stage-image { transition: opacity 120ms ease; }
-.darkroom-sheet-rail { scroll-snap-type: x mandatory; scrollbar-width: none; }
-.darkroom-sheet-rail::-webkit-scrollbar { display: none; }
-.darkroom-sheet { scroll-snap-align: start; }
-.darkroom-prompt-dock { position: fixed; z-index: 35; inset-inline: 0; bottom: 0; padding: .7rem .8rem max(.8rem, env(safe-area-inset-bottom)); background: linear-gradient(0deg, var(--darkroom-canvas) 75%, transparent); }
-.darkroom-surface { border-radius: 20px; }
-.darkroom-noise-grain { background-image: radial-gradient(oklch(1 0 0 / 10%) .5px, transparent .7px); background-size: 5px 5px; }
+.darkroom-scrollbar {
+  scrollbar-color: oklch(0.39 0.02 290) transparent;
+  scrollbar-width: thin;
+}
+.darkroom-range {
+  accent-color: var(--darkroom-coral);
+}
+.darkroom-stage-image {
+  transition: opacity 120ms ease;
+}
+.darkroom-sheet-rail {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.darkroom-sheet-rail::-webkit-scrollbar {
+  display: none;
+}
+.darkroom-sheet {
+  scroll-snap-align: start;
+}
+.darkroom-prompt-dock {
+  position: fixed;
+  z-index: 35;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0.7rem 0.8rem max(0.8rem, env(safe-area-inset-bottom));
+  background: linear-gradient(0deg, var(--darkroom-canvas) 75%, transparent);
+}
+.darkroom-surface {
+  border-radius: 20px;
+}
+.darkroom-noise-grain {
+  background-image: radial-gradient(oklch(1 0 0 / 10%) 0.5px, transparent 0.7px);
+  background-size: 5px 5px;
+}
 
 @media (min-width: 1024px) {
-  .darkroom-prompt-dock { position: static; padding: 0; background: transparent; }
+  .darkroom-prompt-dock {
+    position: static;
+    padding: 0;
+    background: transparent;
+  }
 }
 
 @media (max-width: 639px) {
-  .darkroom-mobile-bottom { padding-bottom: 126px; }
+  .darkroom-mobile-bottom {
+    padding-bottom: 126px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ---------------------------------------------------------------- motion layer */
 @keyframes darkroom-aurora-a {
-  0%, 100% { transform: translate(-10%, -8%) scale(1); }
-  50% { transform: translate(12%, 10%) scale(1.25); }
+  0%,
+  100% {
+    transform: translate(-10%, -8%) scale(1);
+  }
+  50% {
+    transform: translate(12%, 10%) scale(1.25);
+  }
 }
 @keyframes darkroom-aurora-b {
-  0%, 100% { transform: translate(10%, 6%) scale(1.1); }
-  50% { transform: translate(-14%, -10%) scale(0.9); }
+  0%,
+  100% {
+    transform: translate(10%, 6%) scale(1.1);
+  }
+  50% {
+    transform: translate(-14%, -10%) scale(0.9);
+  }
 }
-@keyframes darkroom-spin { to { transform: rotate(360deg); } }
+@keyframes darkroom-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes darkroom-shimmer {
-  0% { transform: translateX(-120%) skewX(-20deg); }
-  60%, 100% { transform: translateX(220%) skewX(-20deg); }
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  60%,
+  100% {
+    transform: translateX(220%) skewX(-20deg);
+  }
 }
 @keyframes darkroom-grain {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-3%, 2%); }
-  50% { transform: translate(2%, -3%); }
-  75% { transform: translate(-2%, -1%); }
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-3%, 2%);
+  }
+  50% {
+    transform: translate(2%, -3%);
+  }
+  75% {
+    transform: translate(-2%, -1%);
+  }
 }
 @keyframes darkroom-scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
 }
 @keyframes darkroom-flow {
-  0% { left: 0%; opacity: 0; }
-  8% { opacity: 1; }
-  92% { opacity: 1; }
-  100% { left: 100%; opacity: 0; }
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
 }
 @keyframes darkroom-gradient-text {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 @keyframes darkroom-ripple {
-  0% { box-shadow: 0 0 0 0 oklch(0.61 0.22 282 / 55%); }
-  100% { box-shadow: 0 0 0 12px oklch(0.61 0.22 282 / 0%); }
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.61 0.22 282 / 55%);
+  }
+  100% {
+    box-shadow: 0 0 0 12px oklch(0.61 0.22 282 / 0%);
+  }
 }
 
-.darkroom-aurora { position: fixed; inset: -20%; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .55; }
-.darkroom-aurora::before, .darkroom-aurora::after { content: ""; position: absolute; border-radius: 9999px; }
+.darkroom-aurora {
+  position: fixed;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(90px);
+  opacity: 0.55;
+}
+.darkroom-aurora::before,
+.darkroom-aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+}
 .darkroom-aurora::before {
-  width: 55vw; height: 55vw; left: 5%; top: 0%;
+  width: 55vw;
+  height: 55vw;
+  left: 5%;
+  top: 0%;
   background: radial-gradient(circle, oklch(0.55 0.24 285 / 55%), transparent 65%);
   animation: darkroom-aurora-a 22s ease-in-out infinite;
 }
 .darkroom-aurora::after {
-  width: 50vw; height: 50vw; right: 0%; top: 25%;
+  width: 50vw;
+  height: 50vw;
+  right: 0%;
+  top: 25%;
   background: radial-gradient(circle, oklch(0.68 0.19 35 / 40%), transparent 65%);
   animation: darkroom-aurora-b 26s ease-in-out infinite;
 }
 
 /* rotating gradient border while generating */
-.darkroom-spin-border { position: relative; isolation: isolate; overflow: hidden; }
+.darkroom-spin-border {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
 .darkroom-spin-border::before {
-  content: ""; position: absolute; inset: -60%; z-index: -1;
-  background: conic-gradient(from 0deg, var(--darkroom-violet), var(--darkroom-coral), var(--darkroom-amber), var(--darkroom-teal), var(--darkroom-violet));
+  content: "";
+  position: absolute;
+  inset: -60%;
+  z-index: -1;
+  background: conic-gradient(
+    from 0deg,
+    var(--darkroom-violet),
+    var(--darkroom-coral),
+    var(--darkroom-amber),
+    var(--darkroom-teal),
+    var(--darkroom-violet)
+  );
   animation: darkroom-spin 3.2s linear infinite;
 }
 
-.darkroom-shimmer { position: relative; overflow: hidden; }
+.darkroom-shimmer {
+  position: relative;
+  overflow: hidden;
+}
 .darkroom-shimmer::after {
-  content: ""; position: absolute; inset: 0; width: 40%;
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
   background: linear-gradient(90deg, transparent, oklch(1 0 0 / 35%), transparent);
   animation: darkroom-shimmer 3.4s ease-in-out infinite;
 }
 
 .darkroom-grain-live {
-  position: absolute; inset: -10%; pointer-events: none; mix-blend-mode: overlay; opacity: .35;
+  position: absolute;
+  inset: -10%;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  opacity: 0.35;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: darkroom-grain .35s steps(2) infinite;
+  animation: darkroom-grain 0.35s steps(2) infinite;
 }
 .darkroom-scanline {
-  position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, transparent 0%, oklch(0.61 0.22 282 / 18%) 48%, oklch(1 0 0 / 22%) 50%, oklch(0.61 0.22 282 / 18%) 52%, transparent 100%);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    oklch(0.61 0.22 282 / 18%) 48%,
+    oklch(1 0 0 / 22%) 50%,
+    oklch(0.61 0.22 282 / 18%) 52%,
+    transparent 100%
+  );
   animation: darkroom-scan 1.8s linear infinite;
 }
 
 .darkroom-gradient-text {
-  background: linear-gradient(100deg, var(--darkroom-violet), var(--darkroom-coral), var(--darkroom-amber), var(--darkroom-violet));
+  background: linear-gradient(
+    100deg,
+    var(--darkroom-violet),
+    var(--darkroom-coral),
+    var(--darkroom-amber),
+    var(--darkroom-violet)
+  );
   background-size: 300% 100%;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   animation: darkroom-gradient-text 8s ease-in-out infinite;
 }
 
-.darkroom-flow-line { position: relative; height: 2px; background: linear-gradient(90deg, transparent, var(--darkroom-panel-edge) 10%, var(--darkroom-panel-edge) 90%, transparent); }
-.darkroom-flow-line > i {
-  position: absolute; top: -4px; width: 10px; height: 10px; border-radius: 9999px;
-  background: var(--darkroom-coral); box-shadow: 0 0 16px 4px oklch(0.70 0.19 35 / 70%);
-  animation: darkroom-flow 4s cubic-bezier(.6,.1,.4,.9) infinite;
+.darkroom-flow-line {
+  position: relative;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--darkroom-panel-edge) 10%,
+    var(--darkroom-panel-edge) 90%,
+    transparent
+  );
 }
-.darkroom-flow-line > i:nth-child(2) { animation-delay: 1.3s; background: var(--darkroom-violet); box-shadow: 0 0 16px 4px oklch(0.61 0.22 282 / 70%); }
-.darkroom-flow-line > i:nth-child(3) { animation-delay: 2.6s; background: var(--darkroom-amber); box-shadow: 0 0 16px 4px oklch(0.83 0.16 82 / 70%); }
+.darkroom-flow-line > i {
+  position: absolute;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--darkroom-coral);
+  box-shadow: 0 0 16px 4px oklch(0.7 0.19 35 / 70%);
+  animation: darkroom-flow 4s cubic-bezier(0.6, 0.1, 0.4, 0.9) infinite;
+}
+.darkroom-flow-line > i:nth-child(2) {
+  animation-delay: 1.3s;
+  background: var(--darkroom-violet);
+  box-shadow: 0 0 16px 4px oklch(0.61 0.22 282 / 70%);
+}
+.darkroom-flow-line > i:nth-child(3) {
+  animation-delay: 2.6s;
+  background: var(--darkroom-amber);
+  box-shadow: 0 0 16px 4px oklch(0.83 0.16 82 / 70%);
+}
 
-.darkroom-ripple { animation: darkroom-ripple 1.2s ease-out infinite; }
-.darkroom-logo-spin { animation: darkroom-spin 12s linear infinite; }
+.darkroom-ripple {
+  animation: darkroom-ripple 1.2s ease-out infinite;
+}
+.darkroom-logo-spin {
+  animation: darkroom-spin 12s linear infinite;
+}
 
 /* idle stage: a slowly drifting "latent" so the canvas never looks dead */
 @keyframes darkroom-latent-drift {
-  0%   { background-position: 0% 0%, 100% 100%, 50% 0%, 0% 100%; }
-  50%  { background-position: 60% 40%, 30% 70%, 80% 60%, 40% 20%; }
-  100% { background-position: 0% 0%, 100% 100%, 50% 0%, 0% 100%; }
+  0% {
+    background-position:
+      0% 0%,
+      100% 100%,
+      50% 0%,
+      0% 100%;
+  }
+  50% {
+    background-position:
+      60% 40%,
+      30% 70%,
+      80% 60%,
+      40% 20%;
+  }
+  100% {
+    background-position:
+      0% 0%,
+      100% 100%,
+      50% 0%,
+      0% 100%;
+  }
 }
 .darkroom-latent-idle {
   background:
     radial-gradient(circle at center, oklch(0.61 0.22 282 / 55%), transparent 55%),
-    radial-gradient(circle at center, oklch(0.70 0.19 35 / 45%), transparent 55%),
+    radial-gradient(circle at center, oklch(0.7 0.19 35 / 45%), transparent 55%),
     radial-gradient(circle at center, oklch(0.83 0.16 82 / 30%), transparent 50%),
     radial-gradient(circle at center, oklch(0.75 0.12 190 / 30%), transparent 55%);
-  background-size: 140% 140%, 120% 120%, 110% 110%, 130% 130%;
+  background-size:
+    140% 140%,
+    120% 120%,
+    110% 110%,
+    130% 130%;
   filter: blur(28px) saturate(1.1);
   animation: darkroom-latent-drift 14s ease-in-out infinite;
-  opacity: .55;
+  opacity: 0.55;
 }
 
 /* lighter effects on small screens so mid-range phones stay smooth */
 @media (max-width: 640px) {
-  .darkroom-aurora { filter: blur(60px); opacity: .4; }
-  .darkroom-latent-idle { filter: blur(20px); }
-  .darkroom-grain-live { display: none; }
+  .darkroom-aurora {
+    filter: blur(60px);
+    opacity: 0.4;
+  }
+  .darkroom-latent-idle {
+    filter: blur(20px);
+  }
+  .darkroom-grain-live {
+    display: none;
+  }
 }

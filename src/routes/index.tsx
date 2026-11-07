@@ -952,6 +952,34 @@ function Darkroom() {
 
   const [view, setView] = useState<"studio" | "bench" | "how">("studio");
   const [slide, setSlide] = useState(0);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      setView("studio");
+      window.setTimeout(() => promptRef.current?.focus(), 50);
+    };
+    // cursor spotlight on glass panels (desktop pointers only)
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      const el = (e.target as HTMLElement | null)?.closest?.(
+        ".darkroom-glass",
+      ) as HTMLElement | null;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      el.style.setProperty("--my", `${e.clientY - r.top}px`);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointermove", onMove);
+    };
+  }, []);
   useEffect(() => {
     const id = window.setInterval(() => setSlide((n) => (n + 1) % GALLERY.length), 4500);
     return () => window.clearInterval(id);
@@ -1075,21 +1103,21 @@ function Darkroom() {
         </header>
 
         {!isLive && (
-          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-darkroom-amber/25 bg-darkroom-amber/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <Wifi className="mt-0.5 h-5 w-5 shrink-0 text-darkroom-amber" />
-              <p className="text-sm leading-relaxed text-foreground/90">
+          <div className="mb-5 flex flex-col gap-2 rounded-2xl border border-darkroom-amber/25 bg-darkroom-amber/[0.07] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3 sm:items-center">
+              <Wifi className="mt-0.5 h-4 w-4 shrink-0 text-darkroom-amber sm:mt-0" />
+              <p className="text-sm leading-snug text-foreground/90">
                 <span className="font-semibold text-darkroom-amber">
                   {connection === "unreachable"
                     ? "The model server isn't reachable. "
                     : "Demo mode. "}
                 </span>
-                Images here are procedural previews, not model output. Timings and scores come from
-                our T4 evaluation. Connect the model server to generate for real.
+                Previews are procedural; every timing and score is measured on a T4. Connect the
+                model server to generate for real.
               </p>
             </div>
             <Button
-              className="darkroom-active h-10 shrink-0 rounded-xl px-5 text-sm"
+              className="darkroom-active h-9 shrink-0 rounded-xl px-4 text-sm"
               onClick={() => {
                 setUrlDraft(connectionUrl);
                 setDialogOpen(true);
@@ -1118,7 +1146,7 @@ function Darkroom() {
                     initial={{ opacity: 0, scale: 0.97 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-                    className={`mx-auto w-full max-w-[720px] rounded-[26px] p-[2px] transition-shadow duration-700 ${
+                    className={`mx-auto w-full max-w-[720px] lg:max-w-[min(720px,calc(100vh_-_330px))] lg:min-w-[560px] rounded-[26px] p-[2px] transition-shadow duration-700 ${
                       busy
                         ? "darkroom-spin-border shadow-[0_0_80px_-10px_var(--darkroom-violet)]"
                         : "bg-darkroom-panel-edge shadow-[0_40px_120px_-50px_var(--darkroom-violet)]"
@@ -1334,20 +1362,31 @@ function Darkroom() {
 
                   {/* prompt composer */}
                   <form
-                    className="darkroom-glass mx-auto max-w-[720px] rounded-3xl p-4 sm:p-5"
+                    className="darkroom-glass mx-auto max-w-[720px] rounded-3xl p-4 sm:p-5 lg:max-w-[min(720px,calc(100vh_-_330px))] lg:min-w-[560px]"
                     onSubmit={submit}
                   >
-                    <label htmlFor="prompt" className="text-sm font-medium text-muted-foreground">
-                      Your prompt
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="prompt" className="text-sm font-medium text-muted-foreground">
+                        Your prompt
+                      </label>
+                      <span
+                        className={`text-xs tabular-nums transition-colors ${
+                          prompt.length > 280 ? "text-darkroom-coral" : "text-muted-foreground/70"
+                        }`}
+                      >
+                        {prompt.length}/300
+                      </span>
+                    </div>
                     <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
                       <Textarea
                         id="prompt"
+                        ref={promptRef}
+                        maxLength={300}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handlePromptKey}
                         placeholder="a red cube to the left of a blue sphere on a wooden table at sunset"
-                        className="min-h-[88px] flex-1 resize-none rounded-2xl border-darkroom-panel-edge bg-darkroom-canvas/60 px-4 py-3 text-base leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-darkroom-violet/50"
+                        className="min-h-[72px] flex-1 resize-none rounded-2xl border-darkroom-panel-edge bg-darkroom-canvas/60 px-4 py-3 text-base leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-darkroom-violet/50"
                       />
                       <Button
                         type="submit"
@@ -1385,6 +1424,14 @@ function Darkroom() {
                       </button>
                       <span className="tabular-nums">
                         {mounted ? `Seed ${seedRef.current}` : ""} · Enter to generate
+                        <span className="hidden lg:inline">
+                          {" "}
+                          ·{" "}
+                          <kbd className="rounded border border-darkroom-panel-edge px-1.5 py-0.5 font-mono text-[11px]">
+                            /
+                          </kbd>{" "}
+                          to focus
+                        </span>
                       </span>
                     </div>
                   </form>

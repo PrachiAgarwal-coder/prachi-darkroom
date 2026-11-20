@@ -375,6 +375,8 @@ def main():
                "runs": score_runs(runs, judges, a.coco, fid=not a.no_fid),
                "failed": {r["key"]: r["error"] for r in runs if "error" in r}}
     (out / "results.json").write_text(json.dumps(results, indent=1, default=float))
+    from darkroom import provenance
+    (out / "environment.json").write_text(json.dumps(provenance.collect(provenance.all_model_repos()), indent=1))
     write_report(results, out, a.reference)
     print((out / "improve_report.md").read_text())
 

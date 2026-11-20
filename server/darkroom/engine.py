@@ -54,7 +54,7 @@ def to_data_url(img: np.ndarray, fmt="JPEG", quality=92):
 
 
 class Engine:
-    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None, adapter=None, compile_unet=None, base=None):
+    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None, adapter=None, compile_unet=None, base=None, safety=None):
         """only: optional list of tier keys to load (e.g. ['lite']) - used to measure one tier's memory in isolation."""
         self.device = pick_device()
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
@@ -64,6 +64,8 @@ class Engine:
         self.adapter = adapter or config.ADAPTER
         if self.adapter not in config.ADAPTERS:
             raise ValueError(f"Unknown adapter {self.adapter!r}; choose from {list(config.ADAPTERS)}")
+        self.safety = config.SAFETY if safety is None else bool(safety)
+        self._safety_models = None
         self.base = base or config.BASE
         if self.base not in config.BASES:
             raise ValueError(f"Unknown base {self.base!r}; choose from {list(config.BASES)}")
@@ -267,6 +269,14 @@ class Engine:
         # peak_process_mb: everything on the GPU (all loaded tiers + scorer models) - only meaningful in isolation.
         # peak_mb: this tier's footprint = its own weights + the activation peak of this request.
         peak_process_mb = torch.cuda.max_memory_allocated() / 1e6 if self.device == "cuda" else None
+        # allocated counts live tensors only. reserved adds PyTorch's caching allocator; device_used adds
+        # the CUDA context and everything else on the card. Report all three so nothing is hidden.
+        peak_reserved_mb = torch.cuda.max_memory_reserved() / 1e6 if self.device == "cuda" else None
+        if self.device == "cuda":
+            free, total = torch.cuda.mem_get_info()
+            device_used_mb = (total - free) / 1e6
+        else:
+            device_used_mb = None
         peak_mb = (self.model_mb[t["pipe"]] + (torch.cuda.max_memory_allocated() - alloc0) / 1e6) \
             if self.device == "cuda" else None
 
@@ -293,6 +303,16 @@ class Engine:
             raw, contrast=post.get("contrast", True), wb=post.get("wb", True),
             sharp=post.get("sharp", True), up=post.get("upscale", True))
         emit({"type": "stage", "stage": "post", "state": "ok", "ms": post_ms})
+        safety_ms = 0.0
+        if self.safety:
+            t6 = time.perf_counter()
+            if self.check_nsfw(processed):
+                import cv2
+                processed = cv2.GaussianBlur(processed, (0, 0), 24)
+                raw = processed
+                qa["nsfw_blocked"] = True
+            safety_ms = (time.perf_counter() - t6) * 1000
+            emit({"type": "stage", "stage": "safety", "state": "ok", "ms": safety_ms})
         emit({"type": "stage", "stage": "qa", "state": "ok", "ms": qa_ms})
 
         # 6. semantic verification
@@ -307,17 +327,33 @@ class Engine:
         return {
             "raw": raw, "processed": processed, "detections": detections, "checks": checks,
             "metrics": {"clip": clip, "peak_mb": peak_mb, "peak_process_mb": peak_process_mb,
+                        "peak_reserved_mb": peak_reserved_mb, "device_used_mb": device_used_mb,
                         "model_mb": self.model_mb[t["pipe"]],
                         "encode_ms": enc_ms, "denoise_ms": den_ms, "decode_ms": dec_ms,
                         "post_ms": post_ms, "qa_ms": qa_ms, "verify_ms": ver_ms, "select_ms": sel_ms,
+                        "safety_ms": safety_ms,
                         "candidates": n, "chosen": chosen, "seed_used": int(seed) + chosen,
                         "candidate_scores": cand, "adapter": self.adapter if t["pipe"] != "baseline" else None,
                         "base": self.base if t["pipe"] != "baseline" else "sd15",
-                        "total_ms": enc_ms + den_ms + dec_ms + sel_ms + post_ms + qa_ms + ver_ms},
+                        "total_ms": enc_ms + den_ms + dec_ms + sel_ms + post_ms + safety_ms + qa_ms + ver_ms},
             "qa": qa, "tier_used": tier,
         }
 
     # ------------------------------------------------------------------ scoring
+    @torch.no_grad()
+    def check_nsfw(self, img):
+        """True if Stable Diffusion's safety checker flags the image. Loaded on first use."""
+        if self._safety_models is None:
+            from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+            from transformers import CLIPImageProcessor
+            chk = StableDiffusionSafetyChecker.from_pretrained(config.SAFETY_MODEL).to(self.device).eval()
+            fe = CLIPImageProcessor.from_pretrained(config.SAFETY_MODEL)
+            self._safety_models = (chk, fe)
+        chk, fe = self._safety_models
+        clip_in = fe(images=img, return_tensors="pt").pixel_values.to(self.device)
+        _, flagged = chk(images=[img.astype(np.float32) / 255], clip_input=clip_in)
+        return bool(flagged[0])
+
     def _load_clip(self):
         if self._clip is None:
             from transformers import CLIPModel, CLIPProcessor

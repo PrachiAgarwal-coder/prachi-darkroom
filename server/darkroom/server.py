@@ -66,6 +66,7 @@ def health():
     eng = state["engine"]
     return {"ok": eng is not None, "device": getattr(eng, "device", None),
             "adapter": getattr(eng, "adapter", None), "max_candidates": config.MAX_CANDIDATES,
+            "safety_checker": getattr(eng, "safety", False),
             "tiers": getattr(eng, "available", []), "mock": os.getenv("DARKROOM_MOCK") == "1"}
 
 

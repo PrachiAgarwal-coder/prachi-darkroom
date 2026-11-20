@@ -28,17 +28,24 @@ def child(tier, n):
     import torch
     from darkroom.engine import Engine
 
+    torch.zeros(1, device="cuda")                       # create the CUDA context, nothing else
+    free, total = torch.cuda.mem_get_info()
+    context_mb = (total - free) / 1e6
     eng = Engine(load_baseline=(tier == "baseline"), only=[tier])
     torch.cuda.synchronize()
     weights_mb = torch.cuda.memory_allocated() / 1e6
     eng.generate(PROMPTS[0], seed=999, tier=tier, preview=False, verify=False, score=False)  # warm-up
-    peaks, gens = [], []
+    peaks, reserved, device, gens = [], [], [], []
     for i in range(n):
         r = eng.generate(PROMPTS[i % len(PROMPTS)], seed=i, tier=tier, preview=False, verify=False, score=False)
         m = r["metrics"]
         peaks.append(m["peak_process_mb"])
+        reserved.append(m["peak_reserved_mb"])
+        device.append(m["device_used_mb"])
         gens.append(m["encode_ms"] + m["denoise_ms"] + m["decode_ms"])
     print("RESULT " + json.dumps({"tier": tier, "peak_mb": max(peaks), "resident_weights_mb": weights_mb,
+                                  "peak_reserved_mb": max(reserved), "device_used_mb": max(device),
+                                  "cuda_context_mb": context_mb,
                                   "gen_ms_isolated": sum(gens) / len(gens), "n": n}), flush=True)
 
 
@@ -72,9 +79,16 @@ def main():
         R["tiers"][tier]["peakMB"] = res["peak_mb"]
         R["tiers"][tier]["resident_weights_mb"] = res["resident_weights_mb"]
         R["tiers"][tier]["gen_ms_isolated"] = res["gen_ms_isolated"]
-        print(f"    peak {res['peak_mb']:.0f} MB  (weights resident {res['resident_weights_mb']:.0f} MB)", flush=True)
-    R["memory_method"] = "isolated: one process per tier, only that tier's weights loaded, no scorer models"
+        for k in ("peak_reserved_mb", "device_used_mb", "cuda_context_mb"):
+            R["tiers"][tier][k] = res[k]
+        print(f"    allocated peak {res['peak_mb']:.0f} MB · reserved peak {res['peak_reserved_mb']:.0f} MB · "
+              f"whole GPU in use {res['device_used_mb']:.0f} MB (CUDA context alone {res['cuda_context_mb']:.0f} MB)", flush=True)
+    R["memory_method"] = ("isolated: one process per tier, only that tier's weights loaded, no scorer models. "
+                          "peakMB = torch max_memory_allocated (live tensors); peak_reserved_mb adds PyTorch's cache; "
+                          "device_used_mb = whole GPU in use incl. the CUDA context")
     (out / "results.json").write_text(json.dumps(R, indent=1, default=float))
+    from darkroom import provenance
+    (out / "environment_memory.json").write_text(json.dumps(provenance.collect(provenance.all_model_repos()), indent=1))
 
     import evaluate
     evaluate.plot(R, out / "quality_vs_cost.png")

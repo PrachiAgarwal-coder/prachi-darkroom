@@ -35,6 +35,11 @@ BASES = {
     "rv51": dict(name="Realistic Vision 5.1", repo="SG161222/Realistic_Vision_V5.1_noVAE",
                  vae="stabilityai/sd-vae-ft-mse"),
 }
+# Stable Diffusion's NSFW safety checker (a CLIP-based classifier). Off by default to save memory and
+# time; DARKROOM_SAFETY=1 turns it on for any public deployment. A flagged image is blurred, not shown.
+SAFETY = os.getenv("DARKROOM_SAFETY", "0") == "1"
+SAFETY_MODEL = "CompVis/stable-diffusion-safety-checker"
+
 # Best-of-N: generate up to this many candidates in one batch and keep the one the verifier prefers.
 MAX_CANDIDATES = 4
 # Optional: your own LoRA trained with eval/train_lora.py ("meaningful adaptation")

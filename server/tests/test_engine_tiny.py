@@ -74,3 +74,18 @@ def test_best_of_n_picks_best_candidate_and_matches_single_seed(monkeypatch):
     assert len(m["candidate_scores"]) == 3 and m["select_ms"] > 0
     single = eng.generate("a red cube", seed=8, tier="balanced", preview=False, verify=False, score=False)
     assert np.abs(single["raw"].astype(int) - r["raw"].astype(int)).max() <= 2
+
+
+def test_safety_checker_blurs_flagged_images(monkeypatch):
+    pipes, taesd = tiny_pipe()
+    eng = Engine(pipes=pipes, taesd=taesd, safety=True)
+    import darkroom.config as c
+    for k in c.TIERS:
+        c.TIERS[k]["res"] = 64
+        c.TIERS[k]["steps"] = min(c.TIERS[k]["steps"], 3)
+    monkeypatch.setattr(eng, "check_nsfw", lambda img: True)
+    r = eng.generate("a cat", seed=1, tier="balanced", preview=False, verify=False, score=False)
+    assert r["qa"].get("nsfw_blocked") is True and r["metrics"]["safety_ms"] >= 0
+    monkeypatch.setattr(eng, "check_nsfw", lambda img: False)
+    r = eng.generate("a cat", seed=1, tier="balanced", preview=False, verify=False, score=False)
+    assert "nsfw_blocked" not in r["qa"]

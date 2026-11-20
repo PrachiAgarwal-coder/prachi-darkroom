@@ -20,7 +20,7 @@ jobs:
         run: |
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install "diffusers>=0.30" "transformers>=4.44" accelerate "peft>=0.12" safetensors \
-            fastapi "uvicorn[standard]" opencv-python-headless numpy pillow pytest httpx
+            optimum-quanto fastapi "uvicorn[standard]" opencv-python-headless numpy pillow pytest httpx
       - name: Tests
         working-directory: server
         run: python -m pytest -q tests

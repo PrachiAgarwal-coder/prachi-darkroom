@@ -308,7 +308,7 @@ function Metric({
   digits?: number;
 }) {
   return (
-    <div className="min-h-[104px] rounded-xl border border-darkroom-panel-edge bg-darkroom-panel p-3 backdrop-blur-xl sm:p-4">
+    <div className="min-h-[104px] rounded-xl border border-darkroom-panel-edge bg-darkroom-panel p-3 sm:p-4">
       <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-[.14em] text-muted-foreground">
         <span>{label}</span>
         <Icon className="h-3.5 w-3.5 opacity-60" />
@@ -1013,7 +1013,7 @@ function Darkroom() {
   const lite = tiers.lite;
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-darkroom-canvas text-foreground selection:bg-darkroom-violet/30">
+    <div className="relative min-h-screen overflow-x-hidden bg-darkroom-canvas text-foreground selection:bg-darkroom-teal/30">
       <div className="darkroom-aurora" aria-hidden />
       <LatentField active={busy} />
       <Toaster position="bottom-center" theme="dark" />
@@ -1026,7 +1026,7 @@ function Darkroom() {
         {/* ------------------------------------------------------------ header */}
         <header className="flex flex-wrap items-center justify-between gap-4 py-5">
           <div className="flex items-center gap-3">
-            <div className="darkroom-spin-border grid h-11 w-11 place-items-center rounded-2xl p-[2px] shadow-[0_8px_30px_-8px_var(--darkroom-violet)]">
+            <div className="darkroom-spin-border grid h-11 w-11 place-items-center rounded-2xl p-[2px]">
               <div className="grid h-full w-full place-items-center rounded-[14px] bg-darkroom-canvas">
                 <Moon className="h-5 w-5 text-darkroom-amber" />
               </div>
@@ -1042,7 +1042,7 @@ function Darkroom() {
           </div>
 
           <nav
-            className="order-3 flex w-full gap-1 rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel p-1 backdrop-blur-xl sm:order-none sm:w-auto"
+            className="order-3 flex w-full gap-1 rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel p-1 sm:order-none sm:w-auto"
             aria-label="Views"
           >
             {(
@@ -1076,12 +1076,12 @@ function Darkroom() {
               setUrlDraft(connectionUrl);
               setDialogOpen(true);
             }}
-            className="flex items-center gap-2.5 rounded-full border border-darkroom-panel-edge bg-darkroom-panel px-4 py-2.5 text-sm backdrop-blur-xl hover:border-darkroom-violet/50"
+            className="flex items-center gap-2.5 rounded-full border border-darkroom-panel-edge bg-darkroom-panel px-4 py-2.5 text-sm hover:border-darkroom-teal/50"
           >
             <span
               className={`h-2.5 w-2.5 rounded-full ${
                 isLive
-                  ? "bg-darkroom-success shadow-[0_0_10px_var(--darkroom-success)]"
+                  ? "bg-darkroom-success"
                   : connection === "unreachable"
                     ? "bg-darkroom-coral"
                     : connection === "connecting"
@@ -1147,9 +1147,7 @@ function Darkroom() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
                     className={`mx-auto w-full max-w-[720px] lg:max-w-[min(720px,calc(100vh_-_330px))] lg:min-w-[560px] rounded-[26px] p-[2px] transition-shadow duration-700 ${
-                      busy
-                        ? "darkroom-spin-border shadow-[0_0_80px_-10px_var(--darkroom-violet)]"
-                        : "bg-darkroom-panel-edge shadow-[0_40px_120px_-50px_var(--darkroom-violet)]"
+                      busy ? "darkroom-spin-border" : "bg-darkroom-panel-edge"
                     }`}
                   >
                     <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-darkroom-canvas">
@@ -1268,7 +1266,7 @@ function Darkroom() {
                           <div className="relative">
                             {busy && (
                               <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-darkroom-panel-edge bg-darkroom-panel">
-                                <Sparkles className="h-7 w-7 text-darkroom-violet" />
+                                <Sparkles className="h-7 w-7 text-darkroom-teal" />
                               </div>
                             )}
                             <p className="font-display text-2xl font-semibold sm:text-3xl">
@@ -1292,12 +1290,12 @@ function Darkroom() {
                         </div>
                       )}
                       {busy && (
-                        <div className="absolute right-4 top-4 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1.5 pl-1.5 pr-4 backdrop-blur-xl">
+                        <div className="absolute right-4 top-4 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/60 py-1.5 pl-1.5 pr-4">
                           <div className="relative grid h-11 w-11 place-items-center rounded-full p-[3px]">
                             <div
                               className="absolute inset-0 rounded-full"
                               style={{
-                                background: `conic-gradient(var(--darkroom-violet) ${
+                                background: `conic-gradient(var(--darkroom-teal) ${
                                   (step / Math.max(1, totalSteps)) * 360
                                 }deg, rgba(255,255,255,.12) 0deg)`,
                               }}
@@ -1386,7 +1384,7 @@ function Darkroom() {
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handlePromptKey}
                         placeholder="a red cube to the left of a blue sphere on a wooden table at sunset"
-                        className="min-h-[72px] flex-1 resize-none rounded-2xl border-darkroom-panel-edge bg-darkroom-canvas/60 px-4 py-3 text-base leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-darkroom-violet/50"
+                        className="min-h-[72px] flex-1 resize-none rounded-2xl border-darkroom-panel-edge bg-darkroom-canvas/60 px-4 py-3 text-base leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-darkroom-teal/50"
                       />
                       <Button
                         type="submit"
@@ -1407,7 +1405,7 @@ function Darkroom() {
                           type="button"
                           key={s}
                           onClick={() => setPrompt(s)}
-                          className="rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/40 px-3.5 py-1.5 text-left text-sm text-muted-foreground transition hover:border-darkroom-violet/50 hover:text-foreground"
+                          className="rounded-full border border-darkroom-panel-edge bg-darkroom-canvas/40 px-3.5 py-1.5 text-left text-sm text-muted-foreground transition hover:border-darkroom-teal/50 hover:text-foreground"
                         >
                           {s}
                         </button>
@@ -1573,7 +1571,7 @@ function Darkroom() {
                             <img
                               src={h.image}
                               alt={h.prompt}
-                              className="aspect-square w-28 rounded-xl border border-darkroom-panel-edge object-cover transition group-hover:border-darkroom-violet"
+                              className="aspect-square w-28 rounded-xl border border-darkroom-panel-edge object-cover transition group-hover:border-darkroom-teal"
                             />
                             <span className="mt-1.5 block truncate text-xs text-muted-foreground">
                               {h.prompt}
@@ -1601,7 +1599,7 @@ function Darkroom() {
                           onClick={() => setDevice(key)}
                           className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                             device === key
-                              ? "bg-secondary text-foreground ring-1 ring-darkroom-violet/50"
+                              ? "bg-secondary text-foreground ring-1 ring-darkroom-teal/50"
                               : "border border-darkroom-panel-edge text-muted-foreground hover:text-foreground"
                           }`}
                         >
@@ -1706,7 +1704,7 @@ function Darkroom() {
                             </span>
                             <span className="text-sm tabular-nums text-muted-foreground">
                               {s.state === "run" ? (
-                                <LoaderCircle className="h-4 w-4 animate-spin text-darkroom-violet" />
+                                <LoaderCircle className="h-4 w-4 animate-spin text-darkroom-teal" />
                               ) : s.ms !== undefined ? (
                                 `${Math.round(s.ms)} ms`
                               ) : (
@@ -1813,7 +1811,7 @@ function Darkroom() {
                                 duration: 1.1,
                                 ease: [0.2, 0.8, 0.2, 1],
                               }}
-                              className={`h-full rounded-full ${k === "baseline" ? "bg-darkroom-dim" : "darkroom-gradient"}`}
+                              className={`h-full rounded-full ${TIER_BAR[k] ?? "bg-darkroom-dim"}`}
                             />
                           </div>
                           <dl className="mt-4 grid grid-cols-2 gap-y-1.5 text-sm">
@@ -2272,7 +2270,7 @@ function Darkroom() {
             value={urlDraft}
             onChange={(e) => setUrlDraft(e.target.value)}
             placeholder="wss://….trycloudflare.com/ws"
-            className="h-12 w-full rounded-xl border border-darkroom-panel-edge bg-darkroom-panel px-4 text-base outline-none focus:border-darkroom-violet"
+            className="h-12 w-full rounded-xl border border-darkroom-panel-edge bg-darkroom-panel px-4 text-base outline-none focus:border-darkroom-teal"
             aria-label="Server WebSocket URL"
           />
           <p className="text-sm text-muted-foreground">
@@ -2305,6 +2303,14 @@ function Darkroom() {
 }
 
 // Real model outputs from eval/make_gallery.py (same prompt and seed on each tier, Tesla T4).
+/* One solid colour per tier, used wherever tiers are compared. */
+const TIER_BAR: Record<string, string> = {
+  baseline: "bg-darkroom-dim",
+  quality: "bg-darkroom-violet",
+  balanced: "bg-darkroom-coral",
+  lite: "bg-darkroom-teal",
+};
+
 const GALLERY: { prompt: string; ms: Record<"baseline" | "balanced" | "lite", number> }[] = [
   {
     prompt: "a cozy cabin in a snowy pine forest at dusk, warm light in the windows",
@@ -2410,7 +2416,7 @@ function BigStat({
     <motion.div
       variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
       whileHover={{ y: -3 }}
-      className="darkroom-glass rounded-2xl p-4 transition-colors hover:border-darkroom-violet/40 sm:p-5"
+      className="darkroom-glass rounded-2xl p-4 transition-colors hover:border-darkroom-teal/40 sm:p-5"
     >
       <div className="text-sm text-muted-foreground">{label}</div>
       <AnimatePresence mode="popLayout" initial={false}>
@@ -2459,7 +2465,7 @@ function Panel({
         className="flex w-full items-center justify-between text-left lg:pointer-events-none"
       >
         <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
-          <Icon className="h-5 w-5 text-darkroom-violet" />
+          <Icon className="h-5 w-5 text-darkroom-teal" />
           {title}
         </h2>
         <span className="flex items-center gap-2">

@@ -69,30 +69,34 @@
   --color-darkroom-success: var(--darkroom-success);
   --color-darkroom-warning: var(--darkroom-warning);
   --color-darkroom-dim: var(--darkroom-dim);
+  --color-darkroom-lime: var(--darkroom-lime);
   --font-display: "Space Grotesk", sans-serif;
   --font-sans: "Inter", sans-serif;
 }
 
 :root {
   --radius: 0.625rem;
-  --darkroom-canvas: oklch(0.105 0.007 300);
-  --darkroom-panel: oklch(0.16 0.009 300 / 72%);
-  --darkroom-panel-edge: oklch(0.92 0.005 300 / 11%);
-  --darkroom-violet: oklch(0.61 0.22 282);
-  --darkroom-coral: oklch(0.7 0.19 35);
-  --darkroom-amber: oklch(0.83 0.16 82);
-  --darkroom-teal: oklch(0.75 0.13 184);
+  --darkroom-canvas: #0e1014;
+  --darkroom-panel: #161a21;
+  --darkroom-panel-edge: #262c36;
+  --darkroom-violet: #7b61ff;
+  --darkroom-coral: #ff5d73;
+  --darkroom-amber: #ffd166;
+  --darkroom-teal: #3ddbd9;
   --darkroom-success: oklch(0.77 0.15 151);
   --darkroom-warning: oklch(0.81 0.15 83);
-  --darkroom-dim: oklch(0.67 0.014 290);
+  --darkroom-dim: #8b93a1;
+  --darkroom-lime: #c8ff4d;
+  --darkroom-paper: #f2f4f7;
+  --darkroom-ink: #0e1014;
   --background: var(--darkroom-canvas);
   --foreground: oklch(0.96 0.006 295);
   --card: oklch(0.16 0.009 300);
   --card-foreground: oklch(0.96 0.006 295);
   --popover: oklch(0.15 0.009 300);
   --popover-foreground: oklch(0.96 0.006 295);
-  --primary: var(--darkroom-violet);
-  --primary-foreground: oklch(0.99 0.003 295);
+  --primary: var(--darkroom-paper);
+  --primary-foreground: var(--darkroom-ink);
   --secondary: oklch(0.22 0.011 300);
   --secondary-foreground: oklch(0.96 0.006 295);
   --muted: oklch(0.19 0.01 300);
@@ -103,7 +107,7 @@
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: var(--darkroom-panel-edge);
   --input: oklch(0.92 0.005 300 / 18%);
-  --ring: var(--darkroom-violet);
+  --ring: var(--darkroom-teal);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -190,48 +194,35 @@
 }
 
 @utility darkroom-glass {
-  background:
-    radial-gradient(
-      420px circle at var(--mx, -999px) var(--my, -999px),
-      color-mix(in oklab, var(--darkroom-violet) 11%, transparent),
-      transparent 45%
-    ),
-    var(--darkroom-panel);
+  background: var(--darkroom-panel);
   border: 1px solid var(--darkroom-panel-edge);
-  backdrop-filter: blur(24px) saturate(135%);
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
   &:hover {
-    border-color: color-mix(in oklab, var(--darkroom-violet) 32%, var(--darkroom-panel-edge));
+    border-color: #343c49;
   }
 }
 
 @utility darkroom-gradient {
-  background: linear-gradient(
-    112deg,
-    var(--darkroom-violet),
-    var(--darkroom-coral) 58%,
-    var(--darkroom-amber)
-  );
+  background: var(--darkroom-paper);
 }
 
 @utility darkroom-active {
-  background: linear-gradient(
-    112deg,
-    var(--darkroom-violet),
-    var(--darkroom-coral) 58%,
-    var(--darkroom-amber)
-  );
-  color: oklch(0.99 0.003 295);
-  box-shadow: 0 8px 26px oklch(0.61 0.22 282 / 26%);
+  background: var(--darkroom-paper);
+  color: var(--darkroom-ink);
+  font-weight: 600;
+  transition:
+    transform 0.15s ease,
+    background-color 0.3s ease;
+  &:hover {
+    animation: darkroom-hue 2.4s linear infinite;
+  }
+  &:active {
+    transform: scale(0.96);
+  }
 }
 
 @utility darkroom-ring {
-  background: conic-gradient(
-    var(--darkroom-violet) 0deg,
-    var(--darkroom-coral) 210deg,
-    var(--darkroom-amber) 300deg,
-    oklch(0.3 0.01 300) 300deg
-  );
+  background: var(--darkroom-paper);
 }
 
 @utility darkroom-pulse {
@@ -386,42 +377,15 @@
 }
 @keyframes darkroom-ripple {
   0% {
-    box-shadow: 0 0 0 0 oklch(0.61 0.22 282 / 55%);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--darkroom-lime) 55%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 12px oklch(0.61 0.22 282 / 0%);
+    box-shadow: 0 0 0 12px transparent;
   }
 }
 
 .darkroom-aurora {
-  position: fixed;
-  inset: -20%;
-  z-index: 0;
-  pointer-events: none;
-  filter: blur(90px);
-  opacity: 0.55;
-}
-.darkroom-aurora::before,
-.darkroom-aurora::after {
-  content: "";
-  position: absolute;
-  border-radius: 9999px;
-}
-.darkroom-aurora::before {
-  width: 55vw;
-  height: 55vw;
-  left: 5%;
-  top: 0%;
-  background: radial-gradient(circle, oklch(0.55 0.24 285 / 55%), transparent 65%);
-  animation: darkroom-aurora-a 22s ease-in-out infinite;
-}
-.darkroom-aurora::after {
-  width: 50vw;
-  height: 50vw;
-  right: 0%;
-  top: 25%;
-  background: radial-gradient(circle, oklch(0.68 0.19 35 / 40%), transparent 65%);
-  animation: darkroom-aurora-b 26s ease-in-out infinite;
+  display: none;
 }
 
 /* rotating gradient border while generating */
@@ -435,13 +399,12 @@
   position: absolute;
   inset: -60%;
   z-index: -1;
+  /* hard colour blocks, not a blend: the four tier colours chase round the frame */
   background: conic-gradient(
-    from 0deg,
-    var(--darkroom-violet),
-    var(--darkroom-coral),
-    var(--darkroom-amber),
-    var(--darkroom-teal),
-    var(--darkroom-violet)
+    var(--darkroom-coral) 0 25%,
+    var(--darkroom-amber) 0 50%,
+    var(--darkroom-teal) 0 75%,
+    var(--darkroom-violet) 0
   );
   animation: darkroom-spin 3.2s linear infinite;
 }
@@ -460,13 +423,7 @@
 }
 
 .darkroom-grain-live {
-  position: absolute;
-  inset: -10%;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: darkroom-grain 0.35s steps(2) infinite;
+  display: none;
 }
 .darkroom-scanline {
   position: absolute;
@@ -474,28 +431,80 @@
   pointer-events: none;
   background: linear-gradient(
     180deg,
-    transparent 0%,
-    oklch(0.61 0.22 282 / 18%) 48%,
-    oklch(1 0 0 / 22%) 50%,
-    oklch(0.61 0.22 282 / 18%) 52%,
-    transparent 100%
+    transparent 49.6%,
+    color-mix(in srgb, var(--darkroom-lime) 55%, transparent) 50%,
+    transparent 50.4%
   );
   animation: darkroom-scan 1.8s linear infinite;
 }
 
 .darkroom-gradient-text {
-  background: linear-gradient(
-    100deg,
-    var(--darkroom-violet),
-    var(--darkroom-coral),
-    var(--darkroom-amber),
-    var(--darkroom-violet)
-  );
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: darkroom-gradient-text 8s ease-in-out infinite;
+  color: var(--darkroom-amber);
+  animation: darkroom-hue-text 8s linear infinite;
+}
+
+/* Buttons: calm white at rest; on hover the fill cycles through the four tier colours. */
+@keyframes darkroom-hue {
+  0%,
+  100% {
+    background-color: var(--darkroom-coral);
+  }
+  25% {
+    background-color: var(--darkroom-amber);
+  }
+  50% {
+    background-color: var(--darkroom-teal);
+  }
+  75% {
+    background-color: var(--darkroom-violet);
+  }
+}
+@keyframes darkroom-hue-text {
+  0%,
+  100% {
+    color: var(--darkroom-coral);
+  }
+  25% {
+    color: var(--darkroom-amber);
+  }
+  50% {
+    color: var(--darkroom-teal);
+  }
+  75% {
+    color: var(--darkroom-violet);
+  }
+}
+@keyframes darkroom-edge {
+  0%,
+  100% {
+    border-color: var(--darkroom-coral);
+  }
+  25% {
+    border-color: var(--darkroom-amber);
+  }
+  50% {
+    border-color: var(--darkroom-teal);
+  }
+  75% {
+    border-color: var(--darkroom-violet);
+  }
+}
+/* unselected option buttons: the outline cycles on hover, and they press in */
+button.border-darkroom-panel-edge:hover {
+  animation: darkroom-edge 2.4s linear infinite;
+}
+button.border-darkroom-panel-edge:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .darkroom-gradient-text,
+  button.border-darkroom-panel-edge:hover {
+    animation: none;
+  }
+  .darkroom-active:hover {
+    animation: none;
+    background-color: var(--darkroom-teal);
+  }
 }
 
 .darkroom-flow-line {
@@ -516,18 +525,15 @@
   height: 10px;
   border-radius: 9999px;
   background: var(--darkroom-coral);
-  box-shadow: 0 0 16px 4px oklch(0.7 0.19 35 / 70%);
   animation: darkroom-flow 4s cubic-bezier(0.6, 0.1, 0.4, 0.9) infinite;
 }
 .darkroom-flow-line > i:nth-child(2) {
   animation-delay: 1.3s;
   background: var(--darkroom-violet);
-  box-shadow: 0 0 16px 4px oklch(0.61 0.22 282 / 70%);
 }
 .darkroom-flow-line > i:nth-child(3) {
   animation-delay: 2.6s;
   background: var(--darkroom-amber);
-  box-shadow: 0 0 16px 4px oklch(0.83 0.16 82 / 70%);
 }
 
 .darkroom-ripple {
@@ -539,53 +545,23 @@
 
 /* idle stage: a slowly drifting "latent" so the canvas never looks dead */
 @keyframes darkroom-latent-drift {
-  0% {
-    background-position:
-      0% 0%,
-      100% 100%,
-      50% 0%,
-      0% 100%;
+  from {
+    background-position: 0 0;
   }
-  50% {
-    background-position:
-      60% 40%,
-      30% 70%,
-      80% 60%,
-      40% 20%;
-  }
-  100% {
-    background-position:
-      0% 0%,
-      100% 100%,
-      50% 0%,
-      0% 100%;
+  to {
+    background-position: 48px 48px;
   }
 }
+/* idle stage: a crisp drifting dot grid, like a latent waiting to be filled */
 .darkroom-latent-idle {
-  background:
-    radial-gradient(circle at center, oklch(0.61 0.22 282 / 55%), transparent 55%),
-    radial-gradient(circle at center, oklch(0.7 0.19 35 / 45%), transparent 55%),
-    radial-gradient(circle at center, oklch(0.83 0.16 82 / 30%), transparent 50%),
-    radial-gradient(circle at center, oklch(0.75 0.12 190 / 30%), transparent 55%);
-  background-size:
-    140% 140%,
-    120% 120%,
-    110% 110%,
-    130% 130%;
-  filter: blur(28px) saturate(1.1);
-  animation: darkroom-latent-drift 14s ease-in-out infinite;
-  opacity: 0.55;
+  background-image: radial-gradient(#2f3642 1.2px, transparent 1.6px);
+  background-size: 12px 12px;
+  animation: darkroom-latent-drift 6s linear infinite;
+  opacity: 0.9;
 }
 
 /* lighter effects on small screens so mid-range phones stay smooth */
 @media (max-width: 640px) {
-  .darkroom-aurora {
-    filter: blur(60px);
-    opacity: 0.4;
-  }
-  .darkroom-latent-idle {
-    filter: blur(20px);
-  }
   .darkroom-grain-live {
     display: none;
   }

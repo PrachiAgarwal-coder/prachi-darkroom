@@ -12,6 +12,7 @@ import argparse
 import io
 import json
 import random
+import time
 import urllib.request
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -62,15 +63,33 @@ def main():
                          f"but --offset {a.offset} skips past all of them.")
 
     def fetch(i):
+        """Download one image, retrying the COCO server (it returns 500s under load) and then the
+        Flickr mirror. Returns None if both keep failing, so one bad image cannot stop the run."""
         im = images[i]
         dest = out / "images" / im["file_name"]
         if not dest.exists():
-            raw = urllib.request.urlopen(im["coco_url"], timeout=30).read()
+            urls = [u for u in (im.get("coco_url"), im.get("flickr_url")) if u]
+            raw = None
+            for attempt in range(4):
+                for u in urls:
+                    try:
+                        raw = urllib.request.urlopen(u, timeout=30).read()
+                        break
+                    except Exception as e:  # noqa: BLE001 - network errors of every kind
+                        last = e
+                if raw is not None:
+                    break
+                time.sleep(2 * (attempt + 1))
+            if raw is None:
+                print(f"  skipped {im['file_name']}: {last}")
+                return None
             center_512(Image.open(io.BytesIO(raw)).convert("RGB")).save(dest, quality=95)
         return {"image": im["file_name"], "caption": first_caption[i]}
 
-    with ThreadPoolExecutor(16) as ex:
-        rows = list(ex.map(fetch, ids))
+    with ThreadPoolExecutor(8) as ex:
+        rows = [r for r in ex.map(fetch, ids) if r is not None]
+    if len(rows) < len(ids):
+        print(f"  {len(ids) - len(rows)} of {len(ids)} images could not be downloaded and were left out")
     (out / "captions.json").write_text(json.dumps(rows, indent=1))
     print(f"Saved {len(rows)} image-caption pairs to {out}")
 

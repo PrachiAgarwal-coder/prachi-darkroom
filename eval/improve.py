@@ -107,7 +107,7 @@ def generate_set(eng, run, prompt_list, out_dir, seed0):
     return rows
 
 
-def run_all(runs, coco_prompts, comp_prompts, out, make_engine):
+def run_all(runs, coco_prompts, comp_prompts, out, make_engine, showcase=None):
     for (adapter, base, comp), group in group_runs(runs).items():
         tiers = sorted({r["tier"] for r in group})
         print(f"\n##### loading engine: adapter={adapter} base={base} compile={comp} tiers={tiers}", flush=True)
@@ -119,6 +119,8 @@ def run_all(runs, coco_prompts, comp_prompts, out, make_engine):
                 t0 = time.time()
                 r["coco"] = generate_set(eng, r, r["coco_prompts"], out / "images" / slug(r["key"]), 0)
                 r["comp"] = generate_set(eng, r, comp_prompts, out / "images" / (slug(r["key"]) + "_comp"), 1000)
+            if showcase:
+                r["show"] = generate_set(eng, r, showcase, out / "showcase" / slug(r["key"]), 42)
                 r["model_mb"] = eng.model_mb[config.TIERS[r["tier"]]["pipe"]]
                 print(f"    done in {time.time() - t0:.0f} s", flush=True)
         except Exception as e:
@@ -258,6 +260,24 @@ def score_runs(runs, judges, coco_dir, fid=True, fid_n=100):
     return {r["key"]: r["summary"] for r in runs}
 
 
+def showcase_grid(runs, prompts, path, cell=256):
+    """One row per showcase prompt, one column per run: same prompt, same seed, every setup."""
+    from PIL import ImageDraw
+    ok = [r for r in runs if "show" in r]
+    if not ok or not prompts:
+        return
+    head, side = 40, 0
+    grid = Image.new("RGB", (cell * len(ok), head + cell * len(prompts)), "white")
+    d = ImageDraw.Draw(grid)
+    for j, r in enumerate(ok):
+        d.text((j * cell + 6, 6), r["key"][:38], fill="black")
+        d.text((j * cell + 6, 22), f"{np.mean([x['gen_ms'] + x['select_ms'] for x in r['show']]):.0f} ms", fill="gray")
+        for i, x in enumerate(r["show"]):
+            grid.paste(Image.open(x["file"]).convert("RGB").resize((cell, cell)), (j * cell, head + i * cell))
+    grid.save(path, quality=90)
+    (path.parent / "showcase_prompts.txt").write_text("\n".join(f"row {i + 1}: {p}" for i, p in enumerate(prompts)) + "\n")
+
+
 # --------------------------------------------------------------------------- report
 def speedup(base, ms):
     x = base / ms
@@ -344,7 +364,10 @@ def main():
             return Engine(load_baseline=True, only=["baseline"])
         return Engine(load_baseline=False, only=tiers, adapter=adapter, compile_unet=comp, base=base)
 
-    run_all(runs, coco_prompts, comp_prompts, out, make_engine)
+    show_file = HERE / "prompts_showcase.txt"
+    showcase = [l.strip() for l in show_file.read_text().splitlines() if l.strip()] if show_file.exists() else []
+    run_all(runs, coco_prompts, comp_prompts, out, make_engine, showcase)
+    showcase_grid(runs, showcase, out / "showcase.jpg")
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     judges = Judges(dev, pickscore=not a.no_pickscore, owl_threshold=a.owl_threshold)
     results = {"device": torch.cuda.get_device_name(0) if dev == "cuda" else dev,

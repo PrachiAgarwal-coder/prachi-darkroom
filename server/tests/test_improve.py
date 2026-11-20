@@ -46,7 +46,9 @@ def test_improve_dry_run(tmp_path, monkeypatch):
         monkeypatch.setattr(eng, "verify", lambda p, i: ([], [{"text": "Found x", "ok": True}]))
         return eng
 
-    improve.run_all(runs, prompts, prompts[:2], tmp_path, make_engine)
+    improve.run_all(runs, prompts, prompts[:2], tmp_path, make_engine, showcase=prompts[:2])
+    improve.showcase_grid(runs, prompts[:2], tmp_path / "showcase.jpg")
+    assert (tmp_path / "showcase.jpg").exists()
     res = improve.score_runs(runs, FakeJudges(), tmp_path, fid=False)
     assert res["lcm:balanced@3"]["select_ms_mean"] > 0 and res["lcm:balanced"]["select_ms_mean"] == 0
     assert res["lcm:balanced"]["owlv2"]["object_recall"] == 0.5

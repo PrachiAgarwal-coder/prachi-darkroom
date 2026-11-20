@@ -25,6 +25,16 @@ ADAPTERS = {
     "hyper": dict(name="Hyper-SD 4-step LoRA", repo="ByteDance/Hyper-SD",
                   weight_name="Hyper-SD15-4steps-lora.safetensors", scheduler="ddim_trailing", call={}),
 }
+# Base checkpoints with the same SD 1.5 architecture (same size, speed and memory). Community
+# fine-tunes are trained further on curated images; the few-step LoRAs still apply to them.
+# The baseline tier always stays the original SD 1.5 so the efficiency comparison is unchanged.
+BASE = os.getenv("DARKROOM_BASE", "sd15")
+BASES = {
+    "sd15": dict(name="Stable Diffusion 1.5", repo=BASE_MODEL, vae=None),
+    "dreamshaper8": dict(name="DreamShaper 8", repo="Lykon/dreamshaper-8", vae=None),
+    "rv51": dict(name="Realistic Vision 5.1", repo="SG161222/Realistic_Vision_V5.1_noVAE",
+                 vae="stabilityai/sd-vae-ft-mse"),
+}
 # Best-of-N: generate up to this many candidates in one batch and keep the one the verifier prefers.
 MAX_CANDIDATES = 4
 # Optional: your own LoRA trained with eval/train_lora.py ("meaningful adaptation")

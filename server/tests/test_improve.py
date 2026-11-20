@@ -29,13 +29,17 @@ def test_improve_dry_run(tmp_path, monkeypatch):
     for k in c.TIERS:
         c.TIERS[k]["res"] = 64
         c.TIERS[k]["steps"] = min(c.TIERS[k]["steps"], 3)
-    runs = [improve.parse_run(s) for s in ["lcm:balanced", "lcm:balanced@3", "base:baseline"]]
+    runs = [improve.parse_run(s) for s in ["lcm:balanced", "lcm:balanced@3", "base:baseline",
+                                           "lcm:balanced+nopost+style+cfg1.5"]]
     assert runs[1]["candidates"] == 3 and runs[2]["adapter"] == "base"
+    assert runs[3]["post"] is False and runs[3]["style"] and runs[3]["guidance"] == 1.5
+    r = improve.parse_run("tcd/dreamshaper8:lite@2+compile")
+    assert (r["adapter"], r["base"], r["tier"], r["candidates"], r["compile"]) == ("tcd", "dreamshaper8", "lite", 2, True)
     prompts = ["a red cube left of a blue sphere", "a cat on a chair", "a dog"]
     for r in runs:
         r["coco_prompts"] = prompts
 
-    def make_engine(adapter, comp, tiers):
+    def make_engine(adapter, base, comp, tiers):
         pipes, taesd = tiny_pipe()
         eng = Engine(pipes=pipes, taesd=taesd)
         monkeypatch.setattr(eng, "clip_score", lambda p, i: 0.3)

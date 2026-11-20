@@ -39,28 +39,48 @@ OFFICIAL_BASELINE_MS = 31814.8      # eval/results/results.json, used when the b
 
 
 # --------------------------------------------------------------------------- run specs
+STYLE_SUFFIX = ", highly detailed, sharp focus, natural lighting, high quality photo"
+
+
 def parse_run(spec):
-    """'lcm:balanced@4+compile' -> dict(adapter, tier, candidates, compile, key)."""
-    s = spec.strip()
-    comp = s.endswith("+compile")
-    s = s.removesuffix("+compile")
-    adapter, _, rest = s.partition(":")
+    """'lcm/dreamshaper8:balanced@4+compile+nopost+style+cfg1.5' -> run dict.
+    adapter[/base]:tier[@candidates] then any of +compile, +nopost (no OpenCV clean-up),
+    +style (quality words appended to the prompt the model sees), +cfgX (guidance scale X)."""
+    key = spec.strip()
+    head, *flags = key.split("+")
+    opts = {"compile": False, "post": True, "style": False, "guidance": None}
+    for f in flags:
+        f = f.strip()
+        if f == "compile":
+            opts["compile"] = True
+        elif f == "nopost":
+            opts["post"] = False
+        elif f == "style":
+            opts["style"] = True
+        elif f.startswith("cfg"):
+            opts["guidance"] = float(f[3:])
+        else:
+            raise SystemExit(f"Unknown option +{f} in {spec!r}")
+    left, _, rest = head.partition(":")
+    adapter, _, base = left.partition("/")
     tier, _, cand = rest.partition("@")
-    adapter, tier = adapter.strip(), tier.strip()
+    adapter, base, tier = adapter.strip(), (base.strip() or "sd15"), tier.strip()
     if tier not in config.TIERS:
         raise SystemExit(f"Unknown tier in {spec!r}")
     if tier == "baseline":
-        adapter = "base"
+        adapter, base = "base", "sd15"
     elif adapter not in config.ADAPTERS:
         raise SystemExit(f"Unknown adapter in {spec!r}; choose from {list(config.ADAPTERS)}")
-    return {"key": spec.strip(), "adapter": adapter, "tier": tier, "candidates": int(cand or 1), "compile": comp}
+    if base not in config.BASES:
+        raise SystemExit(f"Unknown base in {spec!r}; choose from {list(config.BASES)}")
+    return {"key": key, "adapter": adapter, "base": base, "tier": tier, "candidates": int(cand or 1), **opts}
 
 
 def group_runs(runs):
-    """One Engine per (adapter, compile) so each set of weights is loaded once."""
+    """One Engine per (adapter, base, compile) so each set of weights is loaded once."""
     groups = {}
     for r in runs:
-        groups.setdefault((r["adapter"], r["compile"]), []).append(r)
+        groups.setdefault((r["adapter"], r["base"], r["compile"]), []).append(r)
     return groups
 
 
@@ -68,6 +88,12 @@ def group_runs(runs):
 def generate_set(eng, run, prompt_list, out_dir, seed0):
     out_dir.mkdir(parents=True, exist_ok=True)
     kw = {"candidates": run["candidates"]} if run["candidates"] > 1 else {}
+    if run.get("guidance") is not None:
+        kw["guidance"] = run["guidance"]
+    if run.get("style"):
+        kw["prompt_suffix"] = STYLE_SUFFIX
+    if not run.get("post", True):
+        kw["post"] = dict(contrast=False, wb=False, sharp=False, upscale=True)
     eng.generate(prompt_list[0], seed=999, tier=run["tier"], preview=False, verify=False, score=False, **kw)  # warm-up
     rows = []
     for i, p in enumerate(prompt_list):
@@ -82,12 +108,12 @@ def generate_set(eng, run, prompt_list, out_dir, seed0):
 
 
 def run_all(runs, coco_prompts, comp_prompts, out, make_engine):
-    for (adapter, comp), group in group_runs(runs).items():
+    for (adapter, base, comp), group in group_runs(runs).items():
         tiers = sorted({r["tier"] for r in group})
-        print(f"\n##### loading engine: adapter={adapter} compile={comp} tiers={tiers}", flush=True)
+        print(f"\n##### loading engine: adapter={adapter} base={base} compile={comp} tiers={tiers}", flush=True)
         eng = None
         try:                      # one failed experiment (a download, a compile error) must not end the others
-            eng = make_engine(adapter, comp, tiers)
+            eng = make_engine(adapter, base, comp, tiers)
             for r in group:
                 print(f"=== {r['key']}: {len(r['coco_prompts'])} COCO + {len(comp_prompts)} compositional", flush=True)
                 t0 = time.time()
@@ -209,7 +235,8 @@ def score_runs(runs, judges, coco_dir, fid=True, fid_n=100):
         gen = [x["gen_ms"] for x in r["coco"]]
         e2e = [x["gen_ms"] + x["select_ms"] for x in r["coco"]]
         s = {
-            "adapter": r["adapter"], "tier": r["tier"], "candidates": r["candidates"], "compile": r["compile"],
+            "adapter": r["adapter"], "base": r["base"], "tier": r["tier"], "candidates": r["candidates"],
+            "compile": r["compile"], "post": r["post"], "style": r["style"], "guidance": r["guidance"],
             "n": len(imgs), "model_mb": r.get("model_mb"),
             "gen_ms_mean": float(np.mean(gen)), "gen_ms_p95": float(np.percentile(gen, 95)),
             "select_ms_mean": float(np.mean([x["select_ms"] for x in r["coco"]])),
@@ -312,10 +339,10 @@ def main():
 
     from darkroom.engine import Engine
 
-    def make_engine(adapter, comp, tiers):
+    def make_engine(adapter, base, comp, tiers):
         if adapter == "base":
             return Engine(load_baseline=True, only=["baseline"])
-        return Engine(load_baseline=False, only=tiers, adapter=adapter, compile_unet=comp)
+        return Engine(load_baseline=False, only=tiers, adapter=adapter, compile_unet=comp, base=base)
 
     run_all(runs, coco_prompts, comp_prompts, out, make_engine)
     dev = "cuda" if torch.cuda.is_available() else "cpu"

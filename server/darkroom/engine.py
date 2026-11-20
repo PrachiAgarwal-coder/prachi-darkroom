@@ -54,7 +54,7 @@ def to_data_url(img: np.ndarray, fmt="JPEG", quality=92):
 
 
 class Engine:
-    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None, adapter=None, compile_unet=None):
+    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None, adapter=None, compile_unet=None, base=None):
         """only: optional list of tier keys to load (e.g. ['lite']) - used to measure one tier's memory in isolation."""
         self.device = pick_device()
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
@@ -64,6 +64,9 @@ class Engine:
         self.adapter = adapter or config.ADAPTER
         if self.adapter not in config.ADAPTERS:
             raise ValueError(f"Unknown adapter {self.adapter!r}; choose from {list(config.ADAPTERS)}")
+        self.base = base or config.BASE
+        if self.base not in config.BASES:
+            raise ValueError(f"Unknown base {self.base!r}; choose from {list(config.BASES)}")
         self.call_kwargs = {}            # extra scheduler arguments for the fast tiers (e.g. TCD's eta)
         if compile_unet is None:
             compile_unet = os.getenv("DARKROOM_COMPILE", "0") == "1"
@@ -95,8 +98,14 @@ class Engine:
         self.taesd = AutoencoderTiny.from_pretrained(config.TAESD, torch_dtype=self.dtype).to(self.device)
 
         if need("fast") or need("fast_taesd") or need("lite"):
-            log.info("Loading %s (%s)", config.BASE_MODEL, self.dtype)
-            fast = StableDiffusionPipeline.from_pretrained(config.BASE_MODEL, torch_dtype=self.dtype, **common)
+            b = config.BASES[self.base]
+            log.info("Loading %s (%s)", b["repo"], self.dtype)
+            if b["vae"]:
+                from diffusers import AutoencoderKL
+                common_b = dict(common, vae=AutoencoderKL.from_pretrained(b["vae"], torch_dtype=self.dtype))
+            else:
+                common_b = common
+            fast = StableDiffusionPipeline.from_pretrained(b["repo"], torch_dtype=self.dtype, **common_b)
             ad = config.ADAPTERS[self.adapter]
             log.info("Few-step adapter: %s (%s)", ad["name"], ad["repo"])
             kind = ad["scheduler"]
@@ -199,7 +208,7 @@ class Engine:
     # ------------------------------------------------------------------ generate
     @torch.no_grad()
     def generate(self, prompt, seed=0, tier="balanced", on_event=None, preview=True, post=None, verify=True,
-                 steps=None, res=None, score=True, candidates=1):
+                 steps=None, res=None, score=True, candidates=1, guidance=None, prompt_suffix=""):
         """Runs one request. on_event(dict) receives stage/step messages as they happen.
         steps/res override the tier (used by the ablation study).
         candidates > 1: best-of-N. Candidate k uses seed + k; all are denoised in one batch, then the
@@ -208,8 +217,10 @@ class Engine:
         t = dict(config.TIERS[tier])
         if steps: t["steps"] = steps
         if res: t["res"] = res
+        if guidance is not None: t["guidance"] = float(guidance)
         pipe = self.pipes[t["pipe"]]
         cfg = t["guidance"] > 1.0
+        model_prompt = prompt + (prompt_suffix or "")   # checks and scores always use the user's prompt
         n = max(1, min(int(candidates or 1), config.MAX_CANDIDATES))
         gen = torch.Generator(device="cpu").manual_seed(int(seed)) if n == 1 else \
             [torch.Generator(device="cpu").manual_seed(int(seed) + k) for k in range(n)]
@@ -221,7 +232,7 @@ class Engine:
         # 1. prompt encoding
         emit({"type": "stage", "stage": "encode", "state": "run"})
         self._sync(); t0 = time.perf_counter()
-        pe, ne = pipe.encode_prompt(prompt, self.device, 1, cfg, negative_prompt=None)
+        pe, ne = pipe.encode_prompt(model_prompt, self.device, 1, cfg, negative_prompt=None)
         self._sync(); enc_ms = (time.perf_counter() - t0) * 1000
         emit({"type": "stage", "stage": "encode", "state": "ok", "ms": enc_ms})
 
@@ -301,6 +312,7 @@ class Engine:
                         "post_ms": post_ms, "qa_ms": qa_ms, "verify_ms": ver_ms, "select_ms": sel_ms,
                         "candidates": n, "chosen": chosen, "seed_used": int(seed) + chosen,
                         "candidate_scores": cand, "adapter": self.adapter if t["pipe"] != "baseline" else None,
+                        "base": self.base if t["pipe"] != "baseline" else "sd15",
                         "total_ms": enc_ms + den_ms + dec_ms + sel_ms + post_ms + qa_ms + ver_ms},
             "qa": qa, "tier_used": tier,
         }

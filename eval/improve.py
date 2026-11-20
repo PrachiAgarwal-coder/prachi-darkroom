@@ -85,14 +85,23 @@ def run_all(runs, coco_prompts, comp_prompts, out, make_engine):
     for (adapter, comp), group in group_runs(runs).items():
         tiers = sorted({r["tier"] for r in group})
         print(f"\n##### loading engine: adapter={adapter} compile={comp} tiers={tiers}", flush=True)
-        eng = make_engine(adapter, comp, tiers)
-        for r in group:
-            print(f"=== {r['key']}: {len(r['coco_prompts'])} COCO + {len(comp_prompts)} compositional", flush=True)
-            t0 = time.time()
-            r["coco"] = generate_set(eng, r, r["coco_prompts"], out / "images" / slug(r["key"]), 0)
-            r["comp"] = generate_set(eng, r, comp_prompts, out / "images" / (slug(r["key"]) + "_comp"), 1000)
-            r["model_mb"] = eng.model_mb[config.TIERS[r["tier"]]["pipe"]]
-            print(f"    done in {time.time() - t0:.0f} s", flush=True)
+        eng = None
+        try:                      # one failed experiment (a download, a compile error) must not end the others
+            eng = make_engine(adapter, comp, tiers)
+            for r in group:
+                print(f"=== {r['key']}: {len(r['coco_prompts'])} COCO + {len(comp_prompts)} compositional", flush=True)
+                t0 = time.time()
+                r["coco"] = generate_set(eng, r, r["coco_prompts"], out / "images" / slug(r["key"]), 0)
+                r["comp"] = generate_set(eng, r, comp_prompts, out / "images" / (slug(r["key"]) + "_comp"), 1000)
+                r["model_mb"] = eng.model_mb[config.TIERS[r["tier"]]["pipe"]]
+                print(f"    done in {time.time() - t0:.0f} s", flush=True)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            for r in group:
+                if "comp" not in r:
+                    r["error"] = f"{type(e).__name__}: {e}"
+                    print(f"!!! {r['key']} FAILED: {r['error']}", flush=True)
         del eng
         gc.collect()
         if torch.cuda.is_available():
@@ -185,6 +194,7 @@ def faithfulness(check_lists):
 def score_runs(runs, judges, coco_dir, fid=True, fid_n=100):
     if fid:
         from evaluate import distribution_metrics
+    runs = [r for r in runs if "error" not in r]
     for r in runs:
         print(f"--- judging {r['key']}", flush=True)
         imgs = [Image.open(x["file"]).convert("RGB") for x in r["coco"]]
@@ -269,6 +279,8 @@ def write_report(results, out, ref_key):
             L.append(f"| `{k}` | {d(s['clip_l14'], ref['clip_l14'], 1, 4)} | {d(s['pickscore'], ref['pickscore'], 1, 2)} | "
                      f"{d(s.get('kid'), ref.get('kid'), 1000, 2)} | {d(s['owlv2']['relation_acc'], ref['owlv2']['relation_acc'], 1, 2)} | "
                      f"{d(s['owlv2']['prompt_pass'], ref['owlv2']['prompt_pass'], 1, 2)} | {s['e2e_ms_mean'] / ref['e2e_ms_mean']:.2f}× |")
+    for k, err in results.get("failed", {}).items():
+        L.append(f"\n**{k} did not run:** {err}")
     L += ["", "Read differences in CLIP below about 0.005 and in KID within the ± values as noise."]
     (out / "improve_report.md").write_text("\n".join(L) + "\n")
 
@@ -310,7 +322,8 @@ def main():
     judges = Judges(dev, pickscore=not a.no_pickscore, owl_threshold=a.owl_threshold)
     results = {"device": torch.cuda.get_device_name(0) if dev == "cuda" else dev,
                "created": time.strftime("%Y-%m-%d %H:%M"), "reference": a.reference,
-               "runs": score_runs(runs, judges, a.coco, fid=not a.no_fid)}
+               "runs": score_runs(runs, judges, a.coco, fid=not a.no_fid),
+               "failed": {r["key"]: r["error"] for r in runs if "error" in r}}
     (out / "results.json").write_text(json.dumps(results, indent=1, default=float))
     write_report(results, out, a.reference)
     print((out / "improve_report.md").read_text())

@@ -55,3 +55,23 @@ def test_improve_dry_run(tmp_path, monkeypatch):
     improve.write_report({"device": "cpu", "created": "now", "runs": res}, tmp_path, "lcm:balanced")
     text = (tmp_path / "improve_report.md").read_text()
     assert "lcm:balanced@3" in text and "Change against" in text
+
+
+def test_pickscore_runs_on_a_real_clip_model():
+    """Regression: on transformers 5, get_image_features() returns an object, not a tensor (crashed Kaggle)."""
+    import torch
+    from transformers import BatchEncoding, CLIPConfig, CLIPModel
+    from PIL import Image
+    cfg = CLIPConfig(text_config=dict(hidden_size=32, intermediate_size=37, num_attention_heads=4, num_hidden_layers=2,
+                                      vocab_size=1000, projection_dim=16, bos_token_id=0, eos_token_id=1, pad_token_id=1),
+                     vision_config=dict(hidden_size=32, intermediate_size=37, num_attention_heads=4, num_hidden_layers=2,
+                                        image_size=32, patch_size=8, projection_dim=16), projection_dim=16)
+    model = CLIPModel(cfg).eval()
+
+    def proc(text=None, images=None, **_):
+        return BatchEncoding({"input_ids": torch.randint(2, 1000, (1, 7)), "pixel_values": torch.randn(1, 3, 32, 32)})
+
+    j = improve.Judges.__new__(improve.Judges)
+    j.device, j.pick = "cpu", (model, proc)
+    s = j.pickscore("a cat", Image.new("RGB", (32, 32)))
+    assert isinstance(s, float)

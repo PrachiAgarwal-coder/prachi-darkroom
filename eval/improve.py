@@ -179,11 +179,23 @@ class Judges:
         if self.pick is None:
             return None
         m, proc = self.pick
-        im = proc(images=img, return_tensors="pt").to(self.device)
-        tx = proc(text=prompt, padding=True, truncation=True, max_length=77, return_tensors="pt").to(self.device)
-        i = torch.nn.functional.normalize(m.get_image_features(**im), dim=-1)
-        t = torch.nn.functional.normalize(m.get_text_features(**tx), dim=-1)
+        # The full forward pass returns projected embeddings on every transformers version;
+        # get_image_features() returns a wrapper object instead of a tensor on transformers 5.
+        inp = proc(text=[prompt], images=img, padding=True, truncation=True, max_length=77,
+                   return_tensors="pt").to(self.device)
+        out = m(**inp)
+        i = torch.nn.functional.normalize(out.image_embeds, dim=-1)
+        t = torch.nn.functional.normalize(out.text_embeds, dim=-1)
         return float(m.logit_scale.exp() * (i * t).sum())
+
+    def self_test(self):
+        """Run every judge once on a blank image, BEFORE any GPU time is spent on generation."""
+        img = Image.new("RGB", (512, 512), (128, 128, 128))
+        p = "a red apple to the left of a blue cup"
+        out = {"clip_L": self.clip("L", p, img), "clip_B": self.clip("B", p, img),
+               "pickscore": self.pickscore(p, img), "owlv2": len(self.checks("v2", p, img)),
+               "owlvit": len(self.checks("v1", p, img))}
+        print(f"judges self-test OK: {out}", flush=True)
 
     @torch.no_grad()
     def checks(self, which, prompt, img):
@@ -344,6 +356,7 @@ def main():
     ap.add_argument("--no-fid", action="store_true")
     ap.add_argument("--no-pickscore", action="store_true")
     ap.add_argument("--owl-threshold", type=float, default=0.10)
+    ap.add_argument("--resume", action="store_true", help="reuse generation.json; only re-judge")
     a = ap.parse_args()
 
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -366,9 +379,17 @@ def main():
 
     show_file = HERE / "prompts_showcase.txt"
     showcase = [l.strip() for l in show_file.read_text().splitlines() if l.strip()] if show_file.exists() else []
-    run_all(runs, coco_prompts, comp_prompts, out, make_engine, showcase)
-    showcase_grid(runs, showcase, out / "showcase.jpg")
     dev = "cuda" if torch.cuda.is_available() else "cpu"
+    ckpt = out / "generation.json"   # generated rows + timings, so a judging crash never costs a regeneration
+    if a.resume and ckpt.exists():
+        runs = json.loads(ckpt.read_text())
+        print(f"resuming from {ckpt}: {len(runs)} runs, skipping generation", flush=True)
+    else:
+        Judges(dev, pickscore=not a.no_pickscore, owl_threshold=a.owl_threshold).self_test()
+        gc.collect(); torch.cuda.empty_cache() if dev == "cuda" else None
+        run_all(runs, coco_prompts, comp_prompts, out, make_engine, showcase)
+        ckpt.write_text(json.dumps(runs, indent=1, default=float))
+    showcase_grid(runs, showcase, out / "showcase.jpg")
     judges = Judges(dev, pickscore=not a.no_pickscore, owl_threshold=a.owl_threshold)
     results = {"device": torch.cuda.get_device_name(0) if dev == "cuda" else dev,
                "created": time.strftime("%Y-%m-%d %H:%M"), "reference": a.reference,

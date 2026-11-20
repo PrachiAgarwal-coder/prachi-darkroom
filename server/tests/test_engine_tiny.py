@@ -49,3 +49,28 @@ def test_generate_all_tiers(monkeypatch):
     steps = [e for e in events if e["type"] == "step"]
     assert steps and all(e.get("preview", "").startswith("data:image/jpeg") for e in steps)
     assert eng.model_mb["fast"] > 0
+
+
+def test_best_of_n_picks_best_candidate_and_matches_single_seed(monkeypatch):
+    """Candidate k of a batch must be the same image as a single run with seed + k, and the
+    selector must keep the candidate with the most passed checks."""
+    pipes, taesd = tiny_pipe()
+    eng = Engine(pipes=pipes, taesd=taesd)
+    import darkroom.config as c
+    for k in c.TIERS:
+        c.TIERS[k]["res"] = 64
+        c.TIERS[k]["steps"] = min(c.TIERS[k]["steps"], 3)
+    monkeypatch.setattr(eng, "clip_score", lambda p, i: float(i.mean()) / 255)
+    calls = []
+
+    def fake_verify(p, img):
+        calls.append(img)
+        ok = len(calls) == 2          # only the second candidate passes its check
+        return [], [{"text": "Found a cube", "ok": ok}]
+    monkeypatch.setattr(eng, "verify", fake_verify)
+    r = eng.generate("a red cube", seed=7, tier="balanced", preview=False, verify=False, candidates=3)
+    m = r["metrics"]
+    assert m["candidates"] == 3 and m["chosen"] == 1 and m["seed_used"] == 8
+    assert len(m["candidate_scores"]) == 3 and m["select_ms"] > 0
+    single = eng.generate("a red cube", seed=8, tier="balanced", preview=False, verify=False, score=False)
+    assert np.abs(single["raw"].astype(int) - r["raw"].astype(int)).max() <= 2

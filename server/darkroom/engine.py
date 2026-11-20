@@ -54,13 +54,19 @@ def to_data_url(img: np.ndarray, fmt="JPEG", quality=92):
 
 
 class Engine:
-    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None):
+    def __init__(self, load_baseline=None, pipes=None, taesd=None, only=None, adapter=None, compile_unet=None):
         """only: optional list of tier keys to load (e.g. ['lite']) - used to measure one tier's memory in isolation."""
         self.device = pick_device()
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
         self.lock = threading.Lock()
         self.pipes, self.taesd = {}, taesd
         self.precision_actual = {}
+        self.adapter = adapter or config.ADAPTER
+        if self.adapter not in config.ADAPTERS:
+            raise ValueError(f"Unknown adapter {self.adapter!r}; choose from {list(config.ADAPTERS)}")
+        self.call_kwargs = {}            # extra scheduler arguments for the fast tiers (e.g. TCD's eta)
+        if compile_unet is None:
+            compile_unet = os.getenv("DARKROOM_COMPILE", "0") == "1"
         self._clip = self._det = None
         if load_baseline is None:
             load_baseline = os.getenv("DARKROOM_BASELINE", "1" if self.device == "cuda" else "0") == "1"
@@ -68,6 +74,8 @@ class Engine:
             self.pipes = pipes
         else:
             self._load(load_baseline, only)
+            if compile_unet:
+                self._compile()
         self.model_mb = {k: self._pipe_mb(p) for k, p in self.pipes.items()}
         self.available = [k for k, t in config.TIERS.items() if t["pipe"] in self.pipes]
         log.info("Tiers ready: %s on %s", self.available, self.device)
@@ -76,7 +84,7 @@ class Engine:
     def _load(self, load_baseline, only=None):
         import gc
 
-        from diffusers import AutoencoderTiny, LCMScheduler, StableDiffusionPipeline
+        from diffusers import AutoencoderTiny, DDIMScheduler, LCMScheduler, StableDiffusionPipeline, TCDScheduler
 
         wanted = None if not only else {config.TIERS[t]["pipe"] for t in only}
 
@@ -89,8 +97,18 @@ class Engine:
         if need("fast") or need("fast_taesd") or need("lite"):
             log.info("Loading %s (%s)", config.BASE_MODEL, self.dtype)
             fast = StableDiffusionPipeline.from_pretrained(config.BASE_MODEL, torch_dtype=self.dtype, **common)
-            fast.scheduler = LCMScheduler.from_config(fast.scheduler.config)
-            fast.load_lora_weights(config.LCM_LORA, adapter_name="lcm")
+            ad = config.ADAPTERS[self.adapter]
+            log.info("Few-step adapter: %s (%s)", ad["name"], ad["repo"])
+            kind = ad["scheduler"]
+            if kind == "lcm":
+                fast.scheduler = LCMScheduler.from_config(fast.scheduler.config)
+            elif kind == "tcd":
+                fast.scheduler = TCDScheduler.from_config(fast.scheduler.config)
+            else:                              # Hyper-SD expects DDIM with trailing timestep spacing
+                fast.scheduler = DDIMScheduler.from_config(fast.scheduler.config, timestep_spacing="trailing")
+            self.call_kwargs = dict(ad["call"])
+            lora_kw = {"weight_name": ad["weight_name"]} if ad["weight_name"] else {}
+            fast.load_lora_weights(ad["repo"], adapter_name="lcm", **lora_kw)
             if config.CUSTOM_LORA:
                 lora_dir = Path(config.CUSTOM_LORA)
                 lora_file = lora_dir / "pytorch_lora_weights.safetensors"
@@ -140,6 +158,21 @@ class Engine:
         for p in self.pipes.values():
             p.set_progress_bar_config(disable=True)
 
+    def _compile(self):
+        """torch.compile the shared FP16 UNet (Quality and Balanced). Lite's INT8 UNet is left alone:
+        quanto's custom kernels and the compiler do not always agree. The first call per shape is slow."""
+        seen = {}
+        for key in ("fast", "fast_taesd"):
+            p = self.pipes.get(key)
+            if p is None:
+                continue
+            uid = id(p.unet)
+            if uid not in seen:
+                p.unet.to(memory_format=torch.channels_last)
+                seen[uid] = torch.compile(p.unet)
+            p.unet = seen[uid]
+        log.info("UNet compiled for %s", [k for k in ("fast", "fast_taesd") if k in self.pipes])
+
     def _pipe_mb(self, pipe):
         return sum(module_bytes(m) for m in (pipe.unet, pipe.text_encoder, pipe.vae)) / 1e6
 
@@ -166,16 +199,21 @@ class Engine:
     # ------------------------------------------------------------------ generate
     @torch.no_grad()
     def generate(self, prompt, seed=0, tier="balanced", on_event=None, preview=True, post=None, verify=True,
-                 steps=None, res=None, score=True):
+                 steps=None, res=None, score=True, candidates=1):
         """Runs one request. on_event(dict) receives stage/step messages as they happen.
-        steps/res override the tier (used by the ablation study)."""
+        steps/res override the tier (used by the ablation study).
+        candidates > 1: best-of-N. Candidate k uses seed + k; all are denoised in one batch, then the
+        one with the most passed prompt checks (ties: higher CLIP) is kept and post-processed."""
         emit = on_event or (lambda m: None)
         t = dict(config.TIERS[tier])
         if steps: t["steps"] = steps
         if res: t["res"] = res
         pipe = self.pipes[t["pipe"]]
         cfg = t["guidance"] > 1.0
-        gen = torch.Generator(device="cpu").manual_seed(int(seed))
+        n = max(1, min(int(candidates or 1), config.MAX_CANDIDATES))
+        gen = torch.Generator(device="cpu").manual_seed(int(seed)) if n == 1 else \
+            [torch.Generator(device="cpu").manual_seed(int(seed) + k) for k in range(n)]
+        extra = self.call_kwargs if t["pipe"] != "baseline" else {}
         if self.device == "cuda":
             torch.cuda.reset_peak_memory_stats()
             alloc0 = torch.cuda.memory_allocated()
@@ -203,7 +241,8 @@ class Engine:
         latents = pipe(prompt_embeds=pe, negative_prompt_embeds=ne if cfg else None,
                        num_inference_steps=t["steps"], guidance_scale=t["guidance"],
                        height=t["res"], width=t["res"], generator=gen, output_type="latent",
-                       callback_on_step_end=cb, callback_on_step_end_tensor_inputs=["latents"]).images
+                       num_images_per_prompt=n, callback_on_step_end=cb,
+                       callback_on_step_end_tensor_inputs=["latents"], **extra).images
         self._sync(); den_ms = (time.perf_counter() - t1) * 1000
         emit({"type": "stage", "stage": "denoise", "state": "ok", "ms": den_ms})
 
@@ -211,7 +250,7 @@ class Engine:
         emit({"type": "stage", "stage": "decode", "state": "run"})
         self._sync(); t2 = time.perf_counter()
         img = pipe.vae.decode(latents.to(pipe.vae.dtype) / pipe.vae.config.scaling_factor, return_dict=False)[0]
-        img = pipe.image_processor.postprocess(img, output_type="np")[0]
+        img = pipe.image_processor.postprocess(img, output_type="np")
         self._sync(); dec_ms = (time.perf_counter() - t2) * 1000
         emit({"type": "stage", "stage": "decode", "state": "ok", "ms": dec_ms})
         # peak_process_mb: everything on the GPU (all loaded tiers + scorer models) - only meaningful in isolation.
@@ -220,7 +259,22 @@ class Engine:
         peak_mb = (self.model_mb[t["pipe"]] + (torch.cuda.max_memory_allocated() - alloc0) / 1e6) \
             if self.device == "cuda" else None
 
-        raw = (np.clip(img, 0, 1) * 255).astype(np.uint8)
+        raws = [(np.clip(x, 0, 1) * 255).astype(np.uint8) for x in img]
+
+        # 3b. best-of-N selection (only when candidates > 1)
+        chosen, sel_ms, cand = 0, 0.0, []
+        if n > 1:
+            emit({"type": "stage", "stage": "select", "state": "run"})
+            t5 = time.perf_counter()
+            for k, r in enumerate(raws):
+                _, ch = self.verify(prompt, r)
+                real = [c for c in ch if not c.get("muted")]
+                passed = float(np.mean([c["ok"] for c in real])) if real else 1.0
+                cand.append({"seed": int(seed) + k, "checks_passed": passed, "clip": self.clip_score(prompt, r)})
+            chosen = max(range(n), key=lambda k: (cand[k]["checks_passed"], cand[k]["clip"]))
+            sel_ms = (time.perf_counter() - t5) * 1000
+            emit({"type": "stage", "stage": "select", "state": "ok", "ms": sel_ms, "chosen": chosen})
+        raw = raws[chosen]
 
         # 4-5. classical post-processing + quality check
         post = post or {}
@@ -244,8 +298,10 @@ class Engine:
             "metrics": {"clip": clip, "peak_mb": peak_mb, "peak_process_mb": peak_process_mb,
                         "model_mb": self.model_mb[t["pipe"]],
                         "encode_ms": enc_ms, "denoise_ms": den_ms, "decode_ms": dec_ms,
-                        "post_ms": post_ms, "qa_ms": qa_ms, "verify_ms": ver_ms,
-                        "total_ms": enc_ms + den_ms + dec_ms + post_ms + qa_ms + ver_ms},
+                        "post_ms": post_ms, "qa_ms": qa_ms, "verify_ms": ver_ms, "select_ms": sel_ms,
+                        "candidates": n, "chosen": chosen, "seed_used": int(seed) + chosen,
+                        "candidate_scores": cand, "adapter": self.adapter if t["pipe"] != "baseline" else None,
+                        "total_ms": enc_ms + den_ms + dec_ms + sel_ms + post_ms + qa_ms + ver_ms},
             "qa": qa, "tier_used": tier,
         }
 

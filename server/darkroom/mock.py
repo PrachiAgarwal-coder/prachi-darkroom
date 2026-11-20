@@ -42,7 +42,7 @@ class MockEngine:
             o["box"] = [(cx - r) / res, (res * .62 - r) / res, (cx + r) / res, (res * .62 + r) / res]
         return np.array(img), parsed
 
-    def generate(self, prompt, seed=0, tier="balanced", on_event=None, preview=True, post=None, verify=True):
+    def generate(self, prompt, seed=0, tier="balanced", on_event=None, preview=True, post=None, verify=True, **_):
         emit = on_event or (lambda m: None)
         t = config.TIERS[tier]
         rng = np.random.default_rng(seed)

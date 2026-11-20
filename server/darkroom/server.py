@@ -65,6 +65,7 @@ def index():
 def health():
     eng = state["engine"]
     return {"ok": eng is not None, "device": getattr(eng, "device", None),
+            "adapter": getattr(eng, "adapter", None), "max_candidates": config.MAX_CANDIDATES,
             "tiers": getattr(eng, "available", []), "mock": os.getenv("DARKROOM_MOCK") == "1"}
 
 
@@ -106,7 +107,11 @@ def _validate(msg, available):
     except (TypeError, ValueError):
         seed = 0
     post = msg.get("post") if isinstance(msg.get("post"), dict) else {}
-    return prompt, tier, seed, post, bool(msg.get("preview", True))
+    try:
+        candidates = max(1, min(int(msg.get("candidates", 1)), config.MAX_CANDIDATES))
+    except (TypeError, ValueError):
+        candidates = 1
+    return prompt, tier, seed, post, bool(msg.get("preview", True)), candidates
 
 
 @app.websocket("/ws")
@@ -117,7 +122,7 @@ async def ws_generate(ws: WebSocket):
     queue: asyncio.Queue = asyncio.Queue()
     try:
         msg = json.loads(await ws.receive_text())
-        prompt, tier, seed, post, preview = _validate(msg, eng.available)
+        prompt, tier, seed, post, preview, candidates = _validate(msg, eng.available)
     except (ValueError, json.JSONDecodeError) as e:
         await ws.send_json({"type": "error", "message": str(e)})
         await ws.close()
@@ -148,7 +153,8 @@ async def ws_generate(ws: WebSocket):
         for k in order:
             tried.append(k)
             try:
-                result = await asyncio.to_thread(eng.generate, prompt, seed, k, emit, preview, post)
+                kw = {"candidates": candidates} if candidates > 1 else {}
+                result = await asyncio.to_thread(eng.generate, prompt, seed, k, emit, preview, post, **kw)
                 break
             except Exception as e:  # torch.cuda.OutOfMemoryError lands here too
                 oom = "out of memory" in str(e).lower()
@@ -163,6 +169,7 @@ async def ws_generate(ws: WebSocket):
                     error = str(e)
                     break
                 emit({"type": "fallback", "from": k, "message": f"{config.TIERS[k]['name']} ran out of memory; retrying on a lighter tier."})
+                candidates = 1        # a lighter tier is retried with a single candidate
     emit(None)
     await pumper
 

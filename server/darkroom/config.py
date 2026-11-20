@@ -16,6 +16,17 @@ LCM_LORA = os.getenv("DARKROOM_LCM_LORA", "latent-consistency/lcm-lora-sdv1-5")
 TAESD = os.getenv("DARKROOM_TAESD", "madebyollin/taesd")
 CLIP_MODEL = os.getenv("DARKROOM_CLIP", "openai/clip-vit-base-patch32")
 DETECTOR = os.getenv("DARKROOM_DETECTOR", "google/owlvit-base-patch32")
+# Few-step adapter for the fast tiers. "lcm" is what the submitted results use; "tcd" and "hyper"
+# are drop-in alternatives compared in eval/improve.py (same base model, same step counts).
+ADAPTER = os.getenv("DARKROOM_ADAPTER", "lcm")
+ADAPTERS = {
+    "lcm":   dict(name="LCM-LoRA", repo=LCM_LORA, weight_name=None, scheduler="lcm", call={}),
+    "tcd":   dict(name="TCD-LoRA", repo="h1t/TCD-SD15-LoRA", weight_name=None, scheduler="tcd", call={"eta": 0.3}),
+    "hyper": dict(name="Hyper-SD 4-step LoRA", repo="ByteDance/Hyper-SD",
+                  weight_name="Hyper-SD15-4steps-lora.safetensors", scheduler="ddim_trailing", call={}),
+}
+# Best-of-N: generate up to this many candidates in one batch and keep the one the verifier prefers.
+MAX_CANDIDATES = 4
 # Optional: your own LoRA trained with eval/train_lora.py ("meaningful adaptation")
 CUSTOM_LORA = os.getenv("DARKROOM_CUSTOM_LORA", "")
 
